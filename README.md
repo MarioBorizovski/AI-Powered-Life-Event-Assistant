@@ -2,13 +2,13 @@
 Open a terminal and run the following commands:
 
 bash
-# Navigate to the backend directory
+Navigate to the backend directory
 cd backend
-# Activate the virtual environment (Windows)
+Activate the virtual environment (Windows)
 .venv\Scripts\activate
-# Install dependencies (if you haven't already)
+Install dependencies (if you haven't already)
 pip install -r requirements.txt
-# Start the FastAPI server
+Start the FastAPI server
 uvicorn main:app --reload
 The backend will be available at: http://localhost:8000
 
@@ -16,10 +16,10 @@ The backend will be available at: http://localhost:8000
 Open a new terminal and run:
 
 bash
-# Navigate to the frontend directory
+Navigate to the frontend directory
 cd assistant-frontend
-# Install dependencies (since the project uses pnpm)
+Install dependencies (since the project uses pnpm)
 pnpm install
-# Start the development server
+Start the development server
 pnpm run dev
 The frontend will be available at: http://localhost:3000
