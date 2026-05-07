@@ -1,5 +1,4 @@
-README
-Setup & Run the Project
+
 1. Run the Backend (FastAPI)
 Open a terminal and run the following commands:
 # Navigate to the backend folder
@@ -9,7 +8,7 @@ cd backend
 .venv\Scripts\activate
 
 # Install dependencies
-pip install -r requirements.txt
+python -m pip install -r requirements.txt
 
 # Start the FastAPI server
 uvicorn main:app --reload
