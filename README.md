@@ -1,25 +1,30 @@
+README
+Setup & Run the Project
 1. Run the Backend (FastAPI)
 Open a terminal and run the following commands:
-
-bash
-Navigate to the backend directory
+# Navigate to the backend folder
 cd backend
-Activate the virtual environment (Windows)
-.venv\Scripts\activate
-Install dependencies (if you haven't already)
-pip install -r requirements.txt
-Start the FastAPI server
-uvicorn main:app --reload
-The backend will be available at: http://localhost:8000
 
+# Activate virtual environment (Windows)
+.venv\Scripts\activate
+
+# Install dependencies
+pip install -r requirements.txt
+
+# Start the FastAPI server
+uvicorn main:app --reload
+The backend will run on:
+http://localhost:8000
+________________________________________
 2. Run the Frontend (Next.js)
 Open a new terminal and run:
-
-bash
-Navigate to the frontend directory
+# Navigate to the frontend folder
 cd assistant-frontend
-Install dependencies (since the project uses pnpm)
+
+# Install dependencies
 pnpm install
-Start the development server
+
+# Start the development server
 pnpm run dev
-The frontend will be available at: http://localhost:3000
+The frontend will run on:
+http://localhost:3000
