@@ -118,7 +118,14 @@ export default function LoginPage() {
               )}
             </Button>
           </form>
-          
+
+          <div className="mt-6 text-center text-sm text-muted-foreground">
+            <span>Ја заборавивте вашата лозинка? </span>
+            <Link href="/register" className="text-primary hover:underline font-medium">
+              Ресетирај лозинка
+            </Link>
+          </div>
+
           <div className="mt-6 text-center text-sm text-muted-foreground">
             <span>Немате сметка? </span>
             <Link href="/register" className="text-primary hover:underline font-medium">
