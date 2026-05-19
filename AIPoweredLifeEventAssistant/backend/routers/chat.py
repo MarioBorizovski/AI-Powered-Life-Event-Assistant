@@ -1,7 +1,10 @@
 import os
+import time
 import logging
+from collections import defaultdict
 from typing import List, Optional
-from fastapi import APIRouter, Depends, HTTPException
+
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 from openai import AsyncOpenAI
 import openai
@@ -12,6 +15,25 @@ from models import User
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/chat", tags=["Chat"])
+
+# ── Simple in-memory rate limiter ────────────────────────
+# Stores {ip: [timestamp, ...]} for the last 60 seconds
+_rate_store: dict[str, list[float]] = defaultdict(list)
+RATE_LIMIT = 20          # max requests
+RATE_WINDOW = 60.0       # per 60 seconds
+
+
+def _check_rate_limit(ip: str) -> bool:
+    """Returns True if the request is allowed, False if rate-limited."""
+    now = time.time()
+    window_start = now - RATE_WINDOW
+    # Remove old timestamps
+    _rate_store[ip] = [t for t in _rate_store[ip] if t > window_start]
+    if len(_rate_store[ip]) >= RATE_LIMIT:
+        return False
+    _rate_store[ip].append(now)
+    return True
+
 
 class ChatMessage(BaseModel):
     role: str
@@ -37,7 +59,21 @@ STRICT RULES YOU MUST FOLLOW:
 """
 
 @router.post("/", response_model=ChatResponse)
-async def chat_endpoint(request: ChatRequest):
+async def chat_endpoint(request: ChatRequest, http_request: Request):
+    # ── Rate limiting ────────────────────────────────────
+    client_ip = http_request.client.host if http_request.client else "unknown"
+    if not _check_rate_limit(client_ip):
+        logger.warning("Rate limit exceeded for IP: %s", client_ip)
+        return ChatResponse(
+            reply="⚠️ Премногу барања. Ве молиме почекајте малку пред да продолжите."
+        )
+
+    # ── Input validation ─────────────────────────────────
+    if not request.message or not request.message.strip():
+        raise HTTPException(status_code=400, detail="Пораката не може да биде празна")
+    if len(request.message) > 1000:
+        raise HTTPException(status_code=400, detail="Пораката е предолга (максимум 1000 знаци)")
+
     from dotenv import load_dotenv
     load_dotenv(override=True)
     
@@ -48,28 +84,24 @@ async def chat_endpoint(request: ChatRequest):
             reply="Се извинуваме, AI системот моментално не е достапен. Ве молиме обидете се подоцна."
         )
 
-    # Point the OpenAI client to Gemini's API
     client = AsyncOpenAI(
         api_key=api_key,
         base_url="https://generativelanguage.googleapis.com/v1beta/openai/"
     )
 
-    # Build conversation context
     messages = [{"role": "system", "content": RESTRICTED_SYSTEM_PROMPT}]
     
-    # Add history (last 5 messages to save tokens)
     if request.history:
         for msg in request.history[-5:]:
             messages.append({"role": msg.role, "content": msg.content})
             
-    # Add current user message
     messages.append({"role": "user", "content": request.message})
 
     try:
         response = await client.chat.completions.create(
-            model="gemini-2.5-flash", # Google's Gemini Flash model
+            model="gemini-2.5-flash",
             messages=messages,
-            temperature=0.3, # Low temperature for more factual/restricted answers
+            temperature=0.3,
             max_tokens=800
         )
         
@@ -77,14 +109,15 @@ async def chat_endpoint(request: ChatRequest):
         if not reply_text:
             raise ValueError("Empty response from LLM")
             
+        logger.info("Chat response generated for IP: %s", client_ip)
         return ChatResponse(reply=reply_text)
         
     except openai.RateLimitError:
         logger.error("AI Rate Limit Exceeded (Quota)")
-        return ChatResponse(reply="⚠️ Недостаток на кредити: Вашиот API клуч нема доволно средства (insufficient quota). Ве молиме проверете ја вашата сметка кај провајдерот (OpenAI/Gemini/Groq).")
+        return ChatResponse(reply="⚠️ Недостаток на кредити: Вашиот API клуч нема доволно средства. Ве молиме проверете ја вашата сметка кај провајдерот.")
     except openai.AuthenticationError:
         logger.error("AI Authentication Error")
         return ChatResponse(reply="⚠️ Грешка: Невалиден API клуч.")
     except Exception as e:
-        logger.error(f"AI Chat API failed: {str(e)}")
+        logger.error("AI Chat API failed: %s", str(e))
         raise HTTPException(status_code=503, detail="Грешка при комуникација со AI сервисот")

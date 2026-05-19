@@ -3,12 +3,12 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useAuth } from '@/lib/auth-context'
-import { mockApi, type Request, LIFE_EVENTS } from '@/lib/mock-api'
+import { apiEvents, type ApiRequest } from '@/lib/api-client'
+import { LIFE_EVENTS } from '@/lib/mock-api'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
-import { Empty } from '@/components/ui/empty'
 import {
   Table,
   TableBody,
@@ -52,33 +52,33 @@ const statusConfig = {
 }
 
 export default function RequestsPage() {
-  const { user, isAdmin } = useAuth()
-  const [requests, setRequests] = useState<Request[]>([])
+  const { isAdmin } = useAuth()
+  const [requests, setRequests] = useState<ApiRequest[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [deleteId, setDeleteId] = useState<string | null>(null)
 
   useEffect(() => {
-    const loadRequests = async () => {
-      if (user) {
-        const data = await mockApi.getRequests(user.id)
-        setRequests(data.reverse())
-      }
-      setIsLoading(false)
-    }
-    loadRequests()
-  }, [user])
+    apiEvents
+      .list()
+      .then((data) => setRequests([...data].reverse()))
+      .catch(() => toast.error('Грешка при вчитување на барањата'))
+      .finally(() => setIsLoading(false))
+  }, [])
 
-  const getLifeEventLabel = (value: string) => {
-    return LIFE_EVENTS.find((e) => e.value === value)?.label || value
-  }
+  const getLifeEventLabel = (value: string) =>
+    LIFE_EVENTS.find((e) => e.value === value)?.label || value
 
   const handleDelete = async () => {
     if (!deleteId) return
-    
-    await mockApi.deleteRequest(deleteId)
-    setRequests((prev) => prev.filter((r) => r.id !== deleteId))
-    setDeleteId(null)
-    toast.success('Барањето е успешно избришано')
+    try {
+      await apiEvents.delete(deleteId)
+      setRequests((prev) => prev.filter((r) => r.id !== deleteId))
+      toast.success('Барањето е успешно избришано')
+    } catch {
+      toast.error('Грешка при бришење на барањето')
+    } finally {
+      setDeleteId(null)
+    }
   }
 
   return (
@@ -101,9 +101,7 @@ export default function RequestsPage() {
       <Card className="bg-card border-border">
         <CardHeader>
           <CardTitle className="text-lg text-card-foreground">Сите барања</CardTitle>
-          <CardDescription>
-            Листа на сите ваши поднесени барања
-          </CardDescription>
+          <CardDescription>Листа на сите ваши поднесени барања</CardDescription>
         </CardHeader>
         <CardContent>
           {isLoading ? (
@@ -148,10 +146,10 @@ export default function RequestsPage() {
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="font-medium text-foreground truncate">
-                          {getLifeEventLabel(request.lifeEvent)}
+                          {getLifeEventLabel(request.life_event)}
                         </p>
                         <p className="text-sm text-muted-foreground">
-                          {new Date(request.createdAt).toLocaleDateString('mk-MK')}
+                          {new Date(request.created_at).toLocaleDateString('mk-MK')}
                         </p>
                         <Badge variant="secondary" className={`${status.className} mt-2`}>
                           <status.icon className="size-3 mr-1" />
@@ -208,11 +206,11 @@ export default function RequestsPage() {
                               <div className="size-8 rounded-lg bg-primary/10 flex items-center justify-center">
                                 <FileText className="size-4 text-primary" />
                               </div>
-                              {getLifeEventLabel(request.lifeEvent)}
+                              {getLifeEventLabel(request.life_event)}
                             </div>
                           </TableCell>
                           <TableCell className="text-muted-foreground">
-                            {new Date(request.createdAt).toLocaleDateString('mk-MK', {
+                            {new Date(request.created_at).toLocaleDateString('mk-MK', {
                               day: 'numeric',
                               month: 'long',
                               year: 'numeric',
@@ -271,7 +269,10 @@ export default function RequestsPage() {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Откажи</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete} className="bg-destructive text-white hover:bg-destructive/90">
+            <AlertDialogAction
+              onClick={handleDelete}
+              className="bg-destructive text-white hover:bg-destructive/90"
+            >
               Избриши
             </AlertDialogAction>
           </AlertDialogFooter>

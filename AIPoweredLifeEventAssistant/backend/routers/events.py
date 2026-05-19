@@ -1,4 +1,5 @@
 import json
+import logging
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -11,6 +12,8 @@ from models import (
 )
 from auth import get_current_user
 from services.ai_service import generate_life_event_plan
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/events", tags=["Life Events"])
 
@@ -32,6 +35,7 @@ async def create_event(
     session.commit()
     session.refresh(req)
 
+    logger.info("Creating life event plan for event=%s user=%s", data.life_event, current_user.id)
     plan = await generate_life_event_plan(data.life_event, data.description or "")
 
     for t in plan.get("todos", []):
@@ -67,6 +71,7 @@ async def create_event(
     session.commit()
     session.refresh(req)
 
+    logger.info("Life event request created: id=%s event=%s", req.id, req.life_event)
     return _build_request_read(req, session)
 
 
@@ -79,7 +84,42 @@ def list_events(
     requests = session.exec(
         select(Request).where(Request.user_id == current_user.id).order_by(Request.created_at.desc())
     ).all()
-    return [_build_request_read(r, session) for r in requests]
+
+    if not requests:
+        return []
+
+    request_ids = [r.id for r in requests]
+
+    # Batch-load all related rows to avoid N+1 queries
+    all_todos = session.exec(select(Todo).where(Todo.request_id.in_(request_ids))).all()
+    all_docs = session.exec(select(Document).where(Document.request_id.in_(request_ids))).all()
+    all_svcs = session.exec(select(Service).where(Service.request_id.in_(request_ids))).all()
+
+    todos_by_req: dict[str, list] = {rid: [] for rid in request_ids}
+    docs_by_req: dict[str, list] = {rid: [] for rid in request_ids}
+    svcs_by_req: dict[str, list] = {rid: [] for rid in request_ids}
+
+    for t in all_todos:
+        todos_by_req[t.request_id].append(t)
+    for d in all_docs:
+        docs_by_req[d.request_id].append(d)
+    for s in all_svcs:
+        svcs_by_req[s.request_id].append(s)
+
+    return [
+        RequestRead(
+            id=r.id,
+            user_id=r.user_id,
+            life_event=r.life_event,
+            description=r.description,
+            status=r.status,
+            created_at=r.created_at,
+            todos=[TodoRead.model_validate(t) for t in todos_by_req[r.id]],
+            documents=[DocumentRead.model_validate(d) for d in docs_by_req[r.id]],
+            services=[ServiceRead.model_validate(s) for s in svcs_by_req[r.id]],
+        )
+        for r in requests
+    ]
 
 
 @router.get("/{request_id}", response_model=RequestRead)
@@ -118,6 +158,7 @@ def update_event_status(
     req.status = new_status
     session.add(req)
     session.commit()
+    logger.info("Request %s status updated to %s", request_id, new_status)
     return {"message": "Статусот е ажуриран", "status": new_status}
 
 
@@ -143,6 +184,7 @@ def delete_event(
 
     session.delete(req)
     session.commit()
+    logger.info("Request deleted: id=%s by user=%s", request_id, current_user.id)
 
 
 # ── Helper ───────────────────────────────────────────────

@@ -1,15 +1,22 @@
-'use client'
+"use client";
 
-import { useEffect, useState } from 'react'
-import Link from 'next/link'
-import { useAuth } from '@/lib/auth-context'
-import { mockApi, type Request, LIFE_EVENTS } from '@/lib/mock-api'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
-import { Skeleton } from '@/components/ui/skeleton'
-import { Empty } from '@/components/ui/empty'
-import { Progress } from '@/components/ui/progress'
+import { useEffect, useState } from "react";
+import Link from "next/link";
+import { useAuth } from "@/lib/auth-context";
+import { apiEvents, apiAdmin, type ApiRequest, type AdminStats } from "@/lib/api-client";
+import { LIFE_EVENTS } from "@/lib/mock-api";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Empty } from "@/components/ui/empty";
+import { Progress } from "@/components/ui/progress";
 import {
   Table,
   TableBody,
@@ -17,7 +24,7 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '@/components/ui/table'
+} from "@/components/ui/table";
 import {
   PlusCircle,
   ClipboardList,
@@ -30,43 +37,51 @@ import {
   Users,
   BarChart3,
   PieChart,
-} from 'lucide-react'
+} from "lucide-react";
 
 const statusConfig = {
-  pending: { label: 'Во тек', icon: Clock, className: 'bg-yellow-500/10 text-yellow-600 dark:text-yellow-400' },
-  completed: { label: 'Завршено', icon: CheckCircle, className: 'bg-green-500/10 text-green-600 dark:text-green-400' },
-  cancelled: { label: 'Откажано', icon: XCircle, className: 'bg-red-500/10 text-red-600 dark:text-red-400' },
-}
+  pending: {
+    label: "Во тек",
+    icon: Clock,
+    className: "bg-yellow-500/10 text-yellow-600 dark:text-yellow-400",
+  },
+  completed: {
+    label: "Завршено",
+    icon: CheckCircle,
+    className: "bg-green-500/10 text-green-600 dark:text-green-400",
+  },
+  cancelled: {
+    label: "Откажано",
+    icon: XCircle,
+    className: "bg-red-500/10 text-red-600 dark:text-red-400",
+  },
+};
 
 // User Dashboard Component
 function UserDashboard() {
-  const { user } = useAuth()
-  const [requests, setRequests] = useState<Request[]>([])
-  const [isLoading, setIsLoading] = useState(true)
+  const { user } = useAuth();
+  const [requests, setRequests] = useState<ApiRequest[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const loadRequests = async () => {
-      if (user) {
-        const data = await mockApi.getRequests(user.id)
-        setRequests(data)
-      }
-      setIsLoading(false)
-    }
-    loadRequests()
-  }, [user])
+    apiEvents
+      .list()
+      .then((data) => setRequests(data))
+      .catch(() => {})
+      .finally(() => setIsLoading(false));
+  }, []);
 
   const stats = {
     total: requests.length,
-    completed: requests.filter((r) => r.status === 'completed').length,
-    pending: requests.filter((r) => r.status === 'pending').length,
-    cancelled: requests.filter((r) => r.status === 'cancelled').length,
-  }
+    completed: requests.filter((r) => r.status === "completed").length,
+    pending: requests.filter((r) => r.status === "pending").length,
+    cancelled: requests.filter((r) => r.status === "cancelled").length,
+  };
 
-  const recentRequests = requests.slice(-3).reverse()
+  const recentRequests = requests.slice(-3).reverse();
 
-  const getLifeEventLabel = (value: string) => {
-    return LIFE_EVENTS.find((e) => e.value === value)?.label || value
-  }
+  const getLifeEventLabel = (value: string) =>
+    LIFE_EVENTS.find((e) => e.value === value)?.label || value;
 
   return (
     <div className="max-w-6xl mx-auto space-y-8 pb-20 lg:pb-0">
@@ -74,18 +89,12 @@ function UserDashboard() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl md:text-3xl font-bold text-foreground">
-            Добредојдовте, {user?.name?.split(' ')[0]}!
+            Добредојдовте, {user?.name?.split(" ")[0]}!
           </h1>
           <p className="text-muted-foreground mt-1">
             Управувајте со вашите барања и пристапете до јавните услуги
           </p>
         </div>
-        <Button asChild>
-          <Link href="/dashboard/new-request">
-            <PlusCircle className="size-4" />
-            <span>Ново барање</span>
-          </Link>
-        </Button>
       </div>
 
       {/* Stats */}
@@ -101,7 +110,9 @@ function UserDashboard() {
             {isLoading ? (
               <Skeleton className="h-8 w-16" />
             ) : (
-              <p className="text-3xl font-bold text-foreground">{stats.total}</p>
+              <p className="text-3xl font-bold text-foreground">
+                {stats.total}
+              </p>
             )}
           </CardContent>
         </Card>
@@ -117,7 +128,9 @@ function UserDashboard() {
             {isLoading ? (
               <Skeleton className="h-8 w-16" />
             ) : (
-              <p className="text-3xl font-bold text-green-600 dark:text-green-400">{stats.completed}</p>
+              <p className="text-3xl font-bold text-green-600 dark:text-green-400">
+                {stats.completed}
+              </p>
             )}
           </CardContent>
         </Card>
@@ -133,7 +146,9 @@ function UserDashboard() {
             {isLoading ? (
               <Skeleton className="h-8 w-16" />
             ) : (
-              <p className="text-3xl font-bold text-yellow-600 dark:text-yellow-400">{stats.pending}</p>
+              <p className="text-3xl font-bold text-yellow-600 dark:text-yellow-400">
+                {stats.pending}
+              </p>
             )}
           </CardContent>
         </Card>
@@ -150,7 +165,10 @@ function UserDashboard() {
               <Skeleton className="h-8 w-16" />
             ) : (
               <p className="text-3xl font-bold text-primary">
-                {stats.total > 0 ? Math.round((stats.completed / stats.total) * 100) : 0}%
+                {stats.total > 0
+                  ? Math.round((stats.completed / stats.total) * 100)
+                  : 0}
+                %
               </p>
             )}
           </CardContent>
@@ -161,8 +179,12 @@ function UserDashboard() {
       <Card className="bg-card border-border">
         <CardHeader className="flex flex-row items-center justify-between">
           <div>
-            <CardTitle className="text-lg text-card-foreground">Последни барања</CardTitle>
-            <CardDescription>Преглед на вашите неодамнешни барања</CardDescription>
+            <CardTitle className="text-lg text-card-foreground">
+              Последни барања
+            </CardTitle>
+            <CardDescription>
+              Преглед на вашите неодамнешни барања
+            </CardDescription>
           </div>
           <Button variant="ghost" size="sm" asChild>
             <Link href="/dashboard/requests">
@@ -189,7 +211,8 @@ function UserDashboard() {
             <div className="text-center py-8">
               <p className="font-medium text-foreground">Нема барања</p>
               <p className="text-sm text-muted-foreground mb-4">
-                Сеуште немате креирано барања. Започнете со креирање на ново барање.
+                Сеуште немате креирано барања. Започнете со креирање на ново
+                барање.
               </p>
               <Button asChild>
                 <Link href="/dashboard/new-request">
@@ -201,7 +224,7 @@ function UserDashboard() {
           ) : (
             <div className="space-y-4">
               {recentRequests.map((request) => {
-                const status = statusConfig[request.status]
+                const status = statusConfig[request.status];
                 return (
                   <Link
                     key={request.id}
@@ -213,14 +236,17 @@ function UserDashboard() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="font-medium text-foreground truncate">
-                        {getLifeEventLabel(request.lifeEvent)}
+                        {getLifeEventLabel(request.life_event)}
                       </p>
                       <p className="text-sm text-muted-foreground">
-                        {new Date(request.createdAt).toLocaleDateString('mk-MK', {
-                          day: 'numeric',
-                          month: 'long',
-                          year: 'numeric',
-                        })}
+                        {new Date(request.created_at).toLocaleDateString(
+                          "mk-MK",
+                          {
+                            day: "numeric",
+                            month: "long",
+                            year: "numeric",
+                          },
+                        )}
                       </p>
                     </div>
                     <Badge variant="secondary" className={status.className}>
@@ -228,7 +254,7 @@ function UserDashboard() {
                       {status.label}
                     </Badge>
                   </Link>
-                )
+                );
               })}
             </div>
           )}
@@ -272,50 +298,42 @@ function UserDashboard() {
         </Card>
       </div>
     </div>
-  )
+  );
 }
 
 // Admin Dashboard Component with Analytics
 function AdminDashboard() {
-  const [stats, setStats] = useState<{
-    totalUsers: number
-    totalRequests: number
-    pendingRequests: number
-    completedRequests: number
-    cancelledRequests: number
-    requestsByLifeEvent: { lifeEvent: string; count: number }[]
-  } | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
-  const [recentRequests, setRecentRequests] = useState<Request[]>([])
+  const [stats, setStats] = useState<AdminStats | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [recentRequests, setRecentRequests] = useState<ApiRequest[]>([]);
 
   useEffect(() => {
-    const loadData = async () => {
-      const [statsData, requestsData] = await Promise.all([
-        mockApi.getSystemStats(),
-        mockApi.getRequests(),
-      ])
-      setStats(statsData)
-      setRecentRequests(requestsData.slice(-5).reverse())
-      setIsLoading(false)
-    }
-    loadData()
-  }, [])
+    Promise.all([apiAdmin.stats(), apiAdmin.listRequests()])
+      .then(([statsData, requestsData]) => {
+        setStats(statsData);
+        setRecentRequests(requestsData.slice(0, 5));
+      })
+      .catch(() => {})
+      .finally(() => setIsLoading(false));
+  }, []);
 
-  const getLifeEventLabel = (value: string) => {
-    return LIFE_EVENTS.find((e) => e.value === value)?.label || value
-  }
+  const getLifeEventLabel = (value: string) =>
+    LIFE_EVENTS.find((e) => e.value === value)?.label || value;
 
-  const completionRate = stats && stats.totalRequests > 0
-    ? Math.round((stats.completedRequests / stats.totalRequests) * 100)
-    : 0
+  const completionRate =
+    stats && stats.totalRequests > 0
+      ? Math.round((stats.completedRequests / stats.totalRequests) * 100)
+      : 0;
 
-  const pendingRate = stats && stats.totalRequests > 0
-    ? Math.round((stats.pendingRequests / stats.totalRequests) * 100)
-    : 0
+  const pendingRate =
+    stats && stats.totalRequests > 0
+      ? Math.round((stats.pendingRequests / stats.totalRequests) * 100)
+      : 0;
 
-  const cancelledRate = stats && stats.totalRequests > 0
-    ? Math.round((stats.cancelledRequests / stats.totalRequests) * 100)
-    : 0
+  const cancelledRate =
+    stats && stats.totalRequests > 0
+      ? Math.round((stats.cancelledRequests / stats.totalRequests) * 100)
+      : 0;
 
   return (
     <div className="max-w-6xl mx-auto space-y-6 pb-20 lg:pb-0">
@@ -339,11 +357,15 @@ function AdminDashboard() {
                 <Users className="size-6 text-primary" />
               </div>
               <div>
-                <p className="text-sm text-muted-foreground">Вкупно корисници</p>
+                <p className="text-sm text-muted-foreground">
+                  Вкупно корисници
+                </p>
                 {isLoading ? (
                   <Skeleton className="h-8 w-16 mt-1" />
                 ) : (
-                  <p className="text-3xl font-bold text-foreground">{stats?.totalUsers || 0}</p>
+                  <p className="text-3xl font-bold text-foreground">
+                    {stats?.totalUsers || 0}
+                  </p>
                 )}
               </div>
             </div>
@@ -361,7 +383,9 @@ function AdminDashboard() {
                 {isLoading ? (
                   <Skeleton className="h-8 w-16 mt-1" />
                 ) : (
-                  <p className="text-3xl font-bold text-foreground">{stats?.totalRequests || 0}</p>
+                  <p className="text-3xl font-bold text-foreground">
+                    {stats?.totalRequests || 0}
+                  </p>
                 )}
               </div>
             </div>
@@ -434,10 +458,17 @@ function AdminDashboard() {
                       <CheckCircle className="size-4 text-green-500" />
                       <span className="text-foreground">Завршени</span>
                     </div>
-                    <span className="font-medium text-foreground">{completionRate}%</span>
+                    <span className="font-medium text-foreground">
+                      {completionRate}%
+                    </span>
                   </div>
-                  <Progress value={completionRate} className="h-3 [&>[data-slot=progress-indicator]]:bg-green-500" />
-                  <p className="text-xs text-muted-foreground">{stats?.completedRequests || 0} барања</p>
+                  <Progress
+                    value={completionRate}
+                    className="h-3 [&>[data-slot=progress-indicator]]:bg-green-500"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    {stats?.completedRequests || 0} барања
+                  </p>
                 </div>
 
                 <div className="space-y-2">
@@ -446,10 +477,17 @@ function AdminDashboard() {
                       <Clock className="size-4 text-yellow-500" />
                       <span className="text-foreground">Во тек</span>
                     </div>
-                    <span className="font-medium text-foreground">{pendingRate}%</span>
+                    <span className="font-medium text-foreground">
+                      {pendingRate}%
+                    </span>
                   </div>
-                  <Progress value={pendingRate} className="h-3 [&>[data-slot=progress-indicator]]:bg-yellow-500" />
-                  <p className="text-xs text-muted-foreground">{stats?.pendingRequests || 0} барања</p>
+                  <Progress
+                    value={pendingRate}
+                    className="h-3 [&>[data-slot=progress-indicator]]:bg-yellow-500"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    {stats?.pendingRequests || 0} барања
+                  </p>
                 </div>
 
                 <div className="space-y-2">
@@ -458,10 +496,17 @@ function AdminDashboard() {
                       <XCircle className="size-4 text-red-500" />
                       <span className="text-foreground">Откажани</span>
                     </div>
-                    <span className="font-medium text-foreground">{cancelledRate}%</span>
+                    <span className="font-medium text-foreground">
+                      {cancelledRate}%
+                    </span>
                   </div>
-                  <Progress value={cancelledRate} className="h-3 [&>[data-slot=progress-indicator]]:bg-red-500" />
-                  <p className="text-xs text-muted-foreground">{stats?.cancelledRequests || 0} барања</p>
+                  <Progress
+                    value={cancelledRate}
+                    className="h-3 [&>[data-slot=progress-indicator]]:bg-red-500"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    {stats?.cancelledRequests || 0} барања
+                  </p>
                 </div>
               </>
             )}
@@ -483,26 +528,34 @@ function AdminDashboard() {
                   <Skeleton key={i} className="h-10 w-full" />
                 ))}
               </div>
-            ) : stats?.requestsByLifeEvent && stats.requestsByLifeEvent.length > 0 ? (
+            ) : stats?.requestsByLifeEvent &&
+              stats.requestsByLifeEvent.length > 0 ? (
               <div className="space-y-3">
                 {stats.requestsByLifeEvent.slice(0, 6).map((item) => {
-                  const percentage = stats.totalRequests > 0
-                    ? Math.round((item.count / stats.totalRequests) * 100)
-                    : 0
+                  const percentage =
+                    stats.totalRequests > 0
+                      ? Math.round((item.count / stats.totalRequests) * 100)
+                      : 0;
                   return (
                     <div key={item.lifeEvent} className="space-y-1">
                       <div className="flex items-center justify-between text-sm">
-                        <span className="text-foreground truncate">{item.lifeEvent}</span>
-                        <span className="text-muted-foreground">{item.count}</span>
+                        <span className="text-foreground truncate">
+                          {item.lifeEvent}
+                        </span>
+                        <span className="text-muted-foreground">
+                          {item.count}
+                        </span>
                       </div>
                       <Progress value={percentage} className="h-2" />
                     </div>
-                  )
+                  );
                 })}
               </div>
             ) : (
               <div className="text-center py-8">
-                <p className="text-muted-foreground">Нема податоци за прикажување</p>
+                <p className="text-muted-foreground">
+                  Нема податоци за прикажување
+                </p>
               </div>
             )}
           </CardContent>
@@ -513,7 +566,9 @@ function AdminDashboard() {
       <Card className="bg-card border-border">
         <CardHeader className="flex flex-row items-center justify-between">
           <div>
-            <CardTitle className="text-lg text-card-foreground">Последни барања</CardTitle>
+            <CardTitle className="text-lg text-card-foreground">
+              Последни барања
+            </CardTitle>
             <CardDescription>Најновите барања на платформата</CardDescription>
           </div>
           <Button variant="ghost" size="sm" asChild>
@@ -552,21 +607,24 @@ function AdminDashboard() {
               </TableHeader>
               <TableBody>
                 {recentRequests.map((request) => {
-                  const status = statusConfig[request.status]
+                  const status = statusConfig[request.status];
                   return (
                     <TableRow key={request.id}>
                       <TableCell className="font-mono text-xs">
-                        {request.userId.slice(0, 12)}...
+                        {request.user_id.slice(0, 12)}...
                       </TableCell>
                       <TableCell className="font-medium">
-                        {getLifeEventLabel(request.lifeEvent)}
+                        {getLifeEventLabel(request.life_event)}
                       </TableCell>
                       <TableCell className="text-muted-foreground">
-                        {new Date(request.createdAt).toLocaleDateString('mk-MK', {
-                          day: 'numeric',
-                          month: 'short',
-                          year: 'numeric',
-                        })}
+                        {new Date(request.created_at).toLocaleDateString(
+                          "mk-MK",
+                          {
+                            day: "numeric",
+                            month: "short",
+                            year: "numeric",
+                          },
+                        )}
                       </TableCell>
                       <TableCell>
                         <Badge variant="secondary" className={status.className}>
@@ -576,13 +634,15 @@ function AdminDashboard() {
                       </TableCell>
                       <TableCell className="text-right">
                         <Button variant="ghost" size="sm" asChild>
-                          <Link href={`/dashboard/admin/requests/${request.id}`}>
+                          <Link
+                            href={`/dashboard/admin/requests/${request.id}`}
+                          >
                             <ArrowRight className="size-4" />
                           </Link>
                         </Button>
                       </TableCell>
                     </TableRow>
-                  )
+                  );
                 })}
               </TableBody>
             </Table>
@@ -638,16 +698,16 @@ function AdminDashboard() {
         </Card>
       </div>
     </div>
-  )
+  );
 }
 
 // Main Dashboard Page
 export default function DashboardPage() {
-  const { isAdmin } = useAuth()
+  const { isAdmin } = useAuth();
 
   if (isAdmin) {
-    return <AdminDashboard />
+    return <AdminDashboard />;
   }
 
-  return <UserDashboard />
+  return <UserDashboard />;
 }

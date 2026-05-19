@@ -1,55 +1,65 @@
-'use client'
+"use client";
 
-import { useState, useRef } from 'react'
-import { Button } from '@/components/ui/button'
-import { Download } from 'lucide-react'
-import { toast } from 'sonner'
-import type { Request, RequestResult } from '@/lib/mock-api'
-import { LIFE_EVENTS } from '@/lib/mock-api'
+import { useState, useRef } from "react";
+import { Button } from "@/components/ui/button";
+import { Download } from "lucide-react";
+import { toast } from "sonner";
+import type { Request, RequestResult } from "@/lib/mock-api";
+import { LIFE_EVENTS } from "@/lib/mock-api";
+import jsPDF from "jspdf";
+import html2canvas from "html2canvas";
 
 const statusLabels: Record<string, string> = {
-  pending: 'Во тек',
-  completed: 'Завршено',
-  cancelled: 'Откажано',
-}
+  pending: "Во тек",
+  completed: "Завршено",
+  cancelled: "Откажано",
+};
 
 interface PDFExportProps {
-  request: Request
-  result: RequestResult
-  variant?: 'default' | 'outline'
-  className?: string
+  request: Request;
+  result: RequestResult;
+  variant?: "default" | "outline";
+  className?: string;
 }
 
-export function PDFExport({ request, result, variant = 'outline', className }: PDFExportProps) {
-  const [isExporting, setIsExporting] = useState(false)
-  const printRef = useRef<HTMLDivElement>(null)
+export function PDFExport({
+  request,
+  result,
+  variant = "outline",
+  className,
+}: PDFExportProps) {
+  const [isExporting, setIsExporting] = useState(false);
+  const printRef = useRef<HTMLDivElement>(null);
 
   const getLifeEventLabel = (value: string) => {
-    return LIFE_EVENTS.find((e) => e.value === value)?.label || value
-  }
+    return LIFE_EVENTS.find((e) => e.value === value)?.label || value;
+  };
 
-  const completedTodos = result.todos.filter((t) => t.completed).length
-  const totalTodos = result.todos.length
-  const progressPercentage = totalTodos > 0 ? Math.round((completedTodos / totalTodos) * 100) : 0
+  const completedTodos = result.todos.filter((t) => t.completed).length;
+  const totalTodos = result.todos.length;
+  const progressPercentage =
+    totalTodos > 0 ? Math.round((completedTodos / totalTodos) * 100) : 0;
 
   const handleExportPDF = async () => {
-    if (isExporting) return
-    
-    setIsExporting(true)
-    toast.loading('Се подготвува PDF...', { id: 'pdf-export' })
+    if (isExporting) return;
+
+    setIsExporting(true);
+    toast.loading("Се подготвува PDF...", { id: "pdf-export" });
 
     try {
       // Create a new window for printing
-      const printWindow = window.open('', '_blank')
+      const printWindow = window.open("", "_blank");
       if (!printWindow) {
-        toast.error('Ве молиме дозволете pop-up прозорци', { id: 'pdf-export' })
-        setIsExporting(false)
-        return
+        toast.error("Ве молиме дозволете pop-up прозорци", {
+          id: "pdf-export",
+        });
+        setIsExporting(false);
+        return;
       }
 
-      const lifeEventLabel = getLifeEventLabel(request.lifeEvent)
-      const dateStr = new Date(request.createdAt).toLocaleDateString('mk-MK')
-      const currentYear = new Date().getFullYear()
+      const lifeEventLabel = getLifeEventLabel(request.lifeEvent);
+      const dateStr = new Date(request.createdAt).toLocaleDateString("mk-MK");
+      const currentYear = new Date().getFullYear();
 
       const htmlContent = `
         <!DOCTYPE html>
@@ -57,7 +67,7 @@ export function PDFExport({ request, result, variant = 'outline', className }: P
         <head>
           <meta charset="UTF-8">
           <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          <title>еУслуги - Извештај за барање</title>
+          <title >Дигитален асистент за животни настани - Извештај за барање</title>
           <style>
             * {
               margin: 0;
@@ -85,7 +95,7 @@ export function PDFExport({ request, result, variant = 'outline', className }: P
               align-items: center;
             }
             .header h1 {
-              font-size: 28px;
+              font-size: 20px;
               font-weight: bold;
             }
             .header span {
@@ -286,7 +296,7 @@ export function PDFExport({ request, result, variant = 'outline', className }: P
         <body>
           <div class="page">
             <div class="header">
-              <h1>еУслуги</h1>
+              <h1>Дигитален асистент за животни настани</h1>
               <span>Дигитални јавни услуги</span>
             </div>
             
@@ -308,55 +318,76 @@ export function PDFExport({ request, result, variant = 'outline', className }: P
 
             <div class="section">
               <div class="section-title">Листа на задачи</div>
-              ${result.todos.map(todo => {
-                const priorityLabels: Record<string, string> = { high: 'Висок', medium: 'Среден', low: 'Низок' }
-                const deadlineDate = new Date(todo.deadline).toLocaleDateString('mk-MK', { day: 'numeric', month: 'short', year: 'numeric' })
-                return `
+              ${result.todos
+                .map((todo) => {
+                  const priorityLabels: Record<string, string> = {
+                    high: "Висок",
+                    medium: "Среден",
+                    low: "Низок",
+                  };
+                  const deadlineDate = new Date(
+                    todo.deadline,
+                  ).toLocaleDateString("mk-MK", {
+                    day: "numeric",
+                    month: "short",
+                    year: "numeric",
+                  });
+                  return `
                 <div class="todo-item">
-                  <div class="checkbox ${todo.completed ? 'checked' : ''}">${todo.completed ? '✓' : ''}</div>
+                  <div class="checkbox ${todo.completed ? "checked" : ""}">${todo.completed ? "✓" : ""}</div>
                   <div class="todo-content">
-                    <div class="todo-title ${todo.completed ? 'completed' : ''}">${todo.text}</div>
+                    <div class="todo-title ${todo.completed ? "completed" : ""}">${todo.text}</div>
                     <p class="todo-description">${todo.description}</p>
                     <div class="todo-meta">
-                      <span class="todo-deadline">📅 Рок: ${deadlineDate}</span>
+                      <span class="todo-deadline">Рок: ${deadlineDate}</span>
                       <span class="todo-priority priority-${todo.priority}">${priorityLabels[todo.priority]} приоритет</span>
                     </div>
                   </div>
                 </div>
-              `}).join('')}
+              `;
+                })
+                .join("")}
             </div>
 
             <div class="section">
               <div class="section-title">Потребни документи</div>
-              ${result.documents.map(doc => `
+              ${result.documents
+                .map(
+                  (doc) => `
                 <div class="doc-item">
                   <div class="doc-name">
                     ${doc.name}
-                    <span class="doc-badge ${doc.required ? 'required' : 'optional'}">
-                      ${doc.required ? 'Задолжително' : 'Опционално'}
+                    <span class="doc-badge ${doc.required ? "required" : "optional"}">
+                      ${doc.required ? "Задолжително" : "Опционално"}
                     </span>
                   </div>
                   <p class="doc-desc">${doc.description}</p>
                 </div>
-              `).join('')}
+              `,
+                )
+                .join("")}
             </div>
 
             <div class="section">
               <div class="section-title">Јавни сервиси</div>
               <div class="service-grid">
-                ${result.services.map(service => `
+                ${result.services
+                  .map(
+                    (service) => `
                   <div class="service-item">
                     <div class="service-name">${service.name}</div>
                     <p class="service-desc">${service.description}</p>
                     <p class="service-location">📍 ${service.location}</p>
                   </div>
-                `).join('')}
+                `,
+                  )
+                  .join("")}
               </div>
             </div>
 
             <div class="footer">
-              <span>© ${currentYear} еУслуги - Сите права задржани</span>
-              <span>Генерирано: ${new Date().toLocaleDateString('mk-MK')}</span>
+              <span>© ${currentYear} Дигитален асистент за животни настани - Сите права задржани</span>
+              <span>Генерирано: ${new Date().toLocaleDateString("mk-MK")}</span>
             </div>
           </div>
           <script>
@@ -369,24 +400,29 @@ export function PDFExport({ request, result, variant = 'outline', className }: P
           </script>
         </body>
         </html>
-      `
+      `;
 
-      printWindow.document.write(htmlContent)
-      printWindow.document.close()
-      
-      toast.success('PDF е подготвен за печатење!', { id: 'pdf-export' })
+      printWindow.document.write(htmlContent);
+      printWindow.document.close();
+
+      toast.success("PDF е подготвен за печатење!", { id: "pdf-export" });
     } catch (error) {
-      console.error('PDF export error:', error)
-      toast.error('Грешка при генерирање на PDF', { id: 'pdf-export' })
+      console.error("PDF export error:", error);
+      toast.error("Грешка при генерирање на PDF", { id: "pdf-export" });
     } finally {
-      setIsExporting(false)
+      setIsExporting(false);
     }
-  }
+  };
 
   return (
-    <Button variant={variant} onClick={handleExportPDF} disabled={isExporting} className={className}>
+    <Button
+      variant={variant}
+      onClick={handleExportPDF}
+      disabled={isExporting}
+      className={className}
+    >
       <Download className="size-4" />
-      <span>{isExporting ? 'Се подготвува...' : 'Преземи PDF'}</span>
+      <span>{isExporting ? "Се подготвува..." : "Преземи PDF"}</span>
     </Button>
-  )
+  );
 }

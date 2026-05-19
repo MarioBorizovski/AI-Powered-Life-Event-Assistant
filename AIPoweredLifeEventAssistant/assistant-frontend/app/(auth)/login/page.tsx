@@ -1,67 +1,82 @@
-'use client'
+"use client";
 
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
-import Link from 'next/link'
-import { useAuth } from '@/lib/auth-context'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { FieldGroup, Field, FieldLabel, FieldError } from '@/components/ui/field'
-import { Spinner } from '@/components/ui/spinner'
-import { toast } from 'sonner'
-import { Mail, Lock, LogIn } from 'lucide-react'
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { useAuth } from "@/lib/auth-context";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import {
+  FieldGroup,
+  Field,
+  FieldLabel,
+  FieldError,
+} from "@/components/ui/field";
+import { Spinner } from "@/components/ui/spinner";
+import { toast } from "sonner";
+import { Mail, Lock, LogIn } from "lucide-react";
 
 export default function LoginPage() {
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [isLoading, setIsLoading] = useState(false)
-  const [errors, setErrors] = useState<{ email?: string; password?: string }>({})
-  
-  const { login } = useAuth()
-  const router = useRouter()
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const [errors, setErrors] = useState<{ email?: string; password?: string }>(
+    {},
+  );
+
+  const { login } = useAuth();
+  const router = useRouter();
 
   const validate = () => {
-    const newErrors: { email?: string; password?: string } = {}
-    
+    const newErrors: { email?: string; password?: string } = {};
+
     if (!email) {
-      newErrors.email = 'Е-пошта е задолжителна'
+      newErrors.email = "Е-пошта е задолжителна";
     } else if (!/\S+@\S+\.\S+/.test(email)) {
-      newErrors.email = 'Невалидна е-пошта'
+      newErrors.email = "Невалидна е-пошта";
     }
-    
+
     if (!password) {
-      newErrors.password = 'Лозинка е задолжителна'
+      newErrors.password = "Лозинка е задолжителна";
     }
-    
-    setErrors(newErrors)
-    return Object.keys(newErrors).length === 0
-  }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    
-    if (!validate()) return
-    
-    setIsLoading(true)
-    
-    const result = await login(email, password)
-    
-    setIsLoading(false)
-    
+    e.preventDefault();
+
+    if (!validate()) return;
+
+    setIsLoading(true);
+
+    const result = await login(email, password);
+
+    setIsLoading(false);
+
     if (result.success) {
-      toast.success('Успешно се најавивте!')
-      router.push('/dashboard')
+      toast.success("Успешно се најавивте!");
+      router.push("/dashboard");
     } else {
-      toast.error(result.error || 'Грешка при најава')
+      toast.error(result.error || "Грешка при најава");
     }
-  }
+  };
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background px-4">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
-          <CardTitle className="text-2xl font-bold text-foreground">Најава</CardTitle>
+          <CardTitle className="text-2xl font-bold text-foreground">
+            Најава
+          </CardTitle>
           <CardDescription>
             Внесете ги вашите податоци за да се најавите
           </CardDescription>
@@ -85,7 +100,7 @@ export default function LoginPage() {
                 </div>
                 {errors.email && <FieldError>{errors.email}</FieldError>}
               </Field>
-              
+
               <Field>
                 <FieldLabel htmlFor="password">Лозинка</FieldLabel>
                 <div className="relative">
@@ -103,7 +118,7 @@ export default function LoginPage() {
                 {errors.password && <FieldError>{errors.password}</FieldError>}
               </Field>
             </FieldGroup>
-            
+
             <Button type="submit" className="w-full" disabled={isLoading}>
               {isLoading ? (
                 <>
@@ -128,22 +143,15 @@ export default function LoginPage() {
 
           <div className="mt-6 text-center text-sm text-muted-foreground">
             <span>Немате сметка? </span>
-            <Link href="/register" className="text-primary hover:underline font-medium">
+            <Link
+              href="/register"
+              className="text-primary hover:underline font-medium"
+            >
               Регистрирајте се
             </Link>
-          </div>
-          
-          <div className="mt-4 p-3 bg-muted rounded-lg text-sm">
-            <p className="font-medium text-foreground mb-2">Тест корисници:</p>
-            <p className="text-muted-foreground">
-              <span className="font-mono">admin@test.com</span> / <span className="font-mono">admin123</span> (админ)
-            </p>
-            <p className="text-muted-foreground">
-              <span className="font-mono">user@test.com</span> / <span className="font-mono">user123</span> (корисник)
-            </p>
           </div>
         </CardContent>
       </Card>
     </div>
-  )
+  );
 }

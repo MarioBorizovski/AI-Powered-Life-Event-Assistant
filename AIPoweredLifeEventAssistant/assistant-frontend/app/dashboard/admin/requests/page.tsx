@@ -4,7 +4,8 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { useAuth } from '@/lib/auth-context'
-import { mockApi, type Request, LIFE_EVENTS } from '@/lib/mock-api'
+import { apiAdmin, apiEvents, type ApiRequest } from '@/lib/api-client'
+import { LIFE_EVENTS } from '@/lib/mock-api'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -69,8 +70,8 @@ const statusConfig = {
 export default function AdminRequestsPage() {
   const { isAdmin } = useAuth()
   const router = useRouter()
-  const [requests, setRequests] = useState<Request[]>([])
-  const [filteredRequests, setFilteredRequests] = useState<Request[]>([])
+  const [requests, setRequests] = useState<ApiRequest[]>([])
+  const [filteredRequests, setFilteredRequests] = useState<ApiRequest[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [deleteId, setDeleteId] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
@@ -84,10 +85,15 @@ export default function AdminRequestsPage() {
     }
 
     const loadRequests = async () => {
-      const data = await mockApi.getRequests()
-      setRequests(data.reverse())
-      setFilteredRequests(data.reverse())
-      setIsLoading(false)
+      try {
+        const data = await apiAdmin.listRequests()
+        setRequests(data)
+        setFilteredRequests(data)
+      } catch (error) {
+        console.error(error)
+      } finally {
+        setIsLoading(false)
+      }
     }
     loadRequests()
   }, [isAdmin, router])
@@ -98,7 +104,7 @@ export default function AdminRequestsPage() {
     if (searchQuery) {
       result = result.filter(
         (r) =>
-          r.userId.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          r.user_id.toLowerCase().includes(searchQuery.toLowerCase()) ||
           r.id.toLowerCase().includes(searchQuery.toLowerCase())
       )
     }
@@ -108,7 +114,7 @@ export default function AdminRequestsPage() {
     }
 
     if (lifeEventFilter !== 'all') {
-      result = result.filter((r) => r.lifeEvent === lifeEventFilter)
+      result = result.filter((r) => r.life_event === lifeEventFilter)
     }
 
     setFilteredRequests(result)
@@ -121,29 +127,36 @@ export default function AdminRequestsPage() {
   const handleDelete = async () => {
     if (!deleteId) return
 
-    await mockApi.deleteRequest(deleteId)
-    setRequests((prev) => prev.filter((r) => r.id !== deleteId))
-    setDeleteId(null)
-    toast.success('Барањето е успешно избришано')
+    try {
+      await apiEvents.delete(deleteId)
+      setRequests((prev) => prev.filter((r) => r.id !== deleteId))
+      setDeleteId(null)
+      toast.success('Барањето е успешно избришано')
+    } catch (error) {
+      toast.error('Грешка при бришење на барањето')
+    }
   }
 
-  const handleStatusChange = async (requestId: string, status: Request['status']) => {
-    await mockApi.updateRequestStatus(requestId, status)
-    setRequests((prev) =>
-      prev.map((r) => (r.id === requestId ? { ...r, status } : r))
-    )
-    toast.success(`Статусот е променет на "${statusConfig[status].label}"`)
+  const handleStatusChange = async (requestId: string, status: ApiRequest['status']) => {
+    try {
+      await apiEvents.updateStatus(requestId, status)
+      setRequests((prev) =>
+        prev.map((r) => (r.id === requestId ? { ...r, status } : r))
+      )
+      toast.success(`Статусот е променет на "${statusConfig[status].label}"`)
+    } catch (error) {
+      toast.error('Грешка при промена на статусот')
+    }
   }
 
   const handleExportAll = () => {
     const exportData = filteredRequests.map((r) => ({
       id: r.id,
-      userId: r.userId,
-      lifeEvent: getLifeEventLabel(r.lifeEvent),
+      userId: r.user_id,
+      lifeEvent: getLifeEventLabel(r.life_event),
       description: r.description,
       status: statusConfig[r.status].label,
-      createdAt: r.createdAt,
-      uploadedFilesCount: r.uploadedFiles?.length || 0,
+      createdAt: r.created_at,
     }))
     
     const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' })
@@ -339,14 +352,14 @@ export default function AdminRequestsPage() {
                             <div className="size-8 rounded-lg bg-primary/10 flex items-center justify-center">
                               <FileText className="size-4 text-primary" />
                             </div>
-                            {getLifeEventLabel(request.lifeEvent)}
+                            {getLifeEventLabel(request.life_event)}
                           </Link>
                         </TableCell>
                         <TableCell className="text-muted-foreground font-mono text-sm">
-                          {request.userId.slice(0, 12)}...
+                          {request.user_id.slice(0, 12)}...
                         </TableCell>
                         <TableCell className="text-muted-foreground">
-                          {new Date(request.createdAt).toLocaleDateString('mk-MK', {
+                          {new Date(request.created_at).toLocaleDateString('mk-MK', {
                             day: 'numeric',
                             month: 'short',
                             year: 'numeric',

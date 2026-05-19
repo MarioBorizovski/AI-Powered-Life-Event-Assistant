@@ -1,88 +1,126 @@
-'use client'
+"use client";
 
-import { useState } from 'react'
-import Link from 'next/link'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Textarea } from '@/components/ui/textarea'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion'
-import { FieldGroup, Field, FieldLabel } from '@/components/ui/field'
-import { ThemeToggle } from '@/components/theme-toggle'
-import { Spinner } from '@/components/ui/spinner'
-import { toast } from 'sonner'
-import { FileText, Mail, Phone, MapPin, Send, Clock, MessageCircle, HelpCircle } from 'lucide-react'
+import { useState } from "react";
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
+import { FieldGroup, Field, FieldLabel } from "@/components/ui/field";
+import { ThemeToggle } from "@/components/theme-toggle";
+import { Spinner } from "@/components/ui/spinner";
+import { toast } from "sonner";
+import {
+  FileText,
+  Mail,
+  Phone,
+  MapPin,
+  Send,
+  Clock,
+  MessageCircle,
+  HelpCircle,
+} from "lucide-react";
 
 const faqs = [
   {
-    question: 'Како да се регистрирам?',
-    answer: 'Кликнете на копчето "Регистрација" во горниот десен агол, пополнете ги бараните податоци и потврдете ја вашата е-пошта. Процесот е брз и едноставен.',
+    question: "Како да се регистрирам?",
+    answer:
+      'Кликнете на копчето "Регистрација" во горниот десен агол, пополнете ги бараните податоци и потврдете ја вашата е-пошта. Процесот е брз и едноставен.',
   },
   {
-    question: 'Дали услугата е бесплатна?',
-    answer: 'Да, платформата еУслуги е целосно бесплатна за сите граѓани. Можете да креирате барања и да добивате информации без никакви трошоци.',
+    question: "Дали услугата е бесплатна?",
+    answer:
+      "Да, платформата е целосно бесплатна за сите граѓани. Можете да креирате барања и да добивате информации без никакви трошоци.",
   },
   {
-    question: 'Како да генерирам ново барање?',
-    answer: 'Најавете се на вашата сметка, одете на "Генерирај барање" од менито, изберете го животниот настан и пополнете ги потребните информации. Системот автоматски ќе генерира листа на потребни документи и чекори.',
+    question: "Како да генерирам ново барање?",
+    answer:
+      'Најавете се на вашата сметка, одете на "Генерирај барање" од менито, изберете го животниот настан и пополнете ги потребните информации. Системот автоматски ќе генерира листа на потребни документи и чекори.',
   },
   {
-    question: 'Дали моите податоци се заштитени?',
-    answer: 'Да, применуваме најсовремени безбедносни мерки за заштита на вашите лични податоци. Сите податоци се енкриптирани и чувани согласно законските регулативи за заштита на лични податоци.',
+    question: "Дали моите податоци се заштитени?",
+    answer:
+      "Да, применуваме најсовремени безбедносни мерки за заштита на вашите лични податоци. Сите податоци се енкриптирани и чувани согласно законските регулативи за заштита на лични податоци.",
   },
   {
-    question: 'Како да ги преземам резултатите?',
-    answer: 'По завршување на барањето, на страницата со резултати ќе имате опција да го преземете целиот извештај како PDF документ. Кликнете на копчето "Преземи PDF".',
+    question: "Како да ги преземам резултатите?",
+    answer:
+      'По завршување на барањето, на страницата со резултати ќе имате опција да го преземете целиот извештај како PDF документ. Кликнете на копчето "Преземи PDF".',
   },
   {
-    question: 'Што ако имам проблем со платформата?',
-    answer: 'Можете да не контактирате преку формуларот на оваа страница или да испратите е-пошта на support@euslugi.mk. Нашиот тим ќе ви одговори во рок од 24 часа.',
+    question: "Што ако имам проблем со платформата?",
+    answer:
+      "Можете да не контактирате преку формуларот на оваа страница или да испратите е-пошта на support@euslugi.mk. Нашиот тим ќе ви одговори во рок од 24 часа.",
   },
-]
+];
 
 export default function ContactPage() {
-  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState({
-    name: '',
-    email: '',
-    subject: '',
-    message: '',
-  })
+    name: "",
+    email: "",
+    subject: "",
+    message: "",
+  });
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setIsSubmitting(true)
-    
+    e.preventDefault();
+    setIsSubmitting(true);
+
     // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 1000))
-    
-    setIsSubmitting(false)
-    setFormData({ name: '', email: '', subject: '', message: '' })
-    toast.success('Вашата порака е испратена! Ќе ви одговориме наскоро.')
-  }
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+
+    setIsSubmitting(false);
+    setFormData({ name: "", email: "", subject: "", message: "" });
+    toast.success("Вашата порака е испратена! Ќе ви одговориме наскоро.");
+  };
 
   return (
     <div className="min-h-screen bg-background">
       {/* Navigation */}
       <header className="sticky top-0 z-50 bg-background/80 backdrop-blur-sm border-b border-border">
         <div className="container mx-auto px-4 h-16 flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-2 text-primary font-bold text-xl">
-            <FileText className="size-6" />
-            <span>еУслуги</span>
+          <Link
+            href="/"
+            className="flex items-center gap-2 text-primary font-bold text-xl"
+          >
+            <img src="/logo.png" alt="logo" className="w-8 h-8 rounded-md" />
+            <span>Дигитален асистент за животни настани</span>
           </Link>
-          
+
           <nav className="hidden md:flex items-center gap-6">
-            <Link href="/" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+            <Link
+              href="/"
+              className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+            >
               Почетна
             </Link>
-            <Link href="/about" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+            <Link
+              href="/about"
+              className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+            >
               За нас
             </Link>
-            <Link href="/contact" className="text-sm font-medium text-primary hover:text-primary transition-colors">
+            <Link
+              href="/contact"
+              className="text-sm font-medium text-primary hover:text-primary transition-colors"
+            >
               Контакт/ЧПП
             </Link>
           </nav>
-          
+
           <div className="flex items-center gap-3">
             <ThemeToggle />
             <Button asChild>
@@ -105,7 +143,8 @@ export default function ContactPage() {
               Контакт и ЧПП
             </h1>
             <p className="text-lg text-muted-foreground max-w-2xl mx-auto text-pretty">
-              Имате прашања? Проверете ги често поставуваните прашања или испратете ни порака директно.
+              Имате прашања? Проверете ги често поставуваните прашања или
+              испратете ни порака директно.
             </p>
           </div>
         </section>
@@ -119,7 +158,9 @@ export default function ContactPage() {
                   <div className="size-14 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-4 group-hover:bg-primary/20 transition-colors">
                     <Mail className="size-7 text-primary" />
                   </div>
-                  <h3 className="font-semibold text-foreground mb-1">Е-пошта</h3>
+                  <h3 className="font-semibold text-foreground mb-1">
+                    Е-пошта
+                  </h3>
                   <p className="text-muted-foreground">support@euslugi.mk</p>
                 </CardContent>
               </Card>
@@ -129,7 +170,9 @@ export default function ContactPage() {
                   <div className="size-14 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-4 group-hover:bg-primary/20 transition-colors">
                     <Phone className="size-7 text-primary" />
                   </div>
-                  <h3 className="font-semibold text-foreground mb-1">Телефон</h3>
+                  <h3 className="font-semibold text-foreground mb-1">
+                    Телефон
+                  </h3>
                   <p className="text-muted-foreground">+389 2 123 456</p>
                 </CardContent>
               </Card>
@@ -140,7 +183,9 @@ export default function ContactPage() {
                     <MapPin className="size-7 text-primary" />
                   </div>
                   <h3 className="font-semibold text-foreground mb-1">Адреса</h3>
-                  <p className="text-muted-foreground">Бул. Илинден бр. 2, Скопје</p>
+                  <p className="text-muted-foreground">
+                    Бул. Илинден бр. 2, Скопје
+                  </p>
                 </CardContent>
               </Card>
             </div>
@@ -159,7 +204,8 @@ export default function ContactPage() {
                     Испратете порака
                   </CardTitle>
                   <CardDescription>
-                    Пополнете го формуларот и ќе ви одговориме во најкраток можен рок
+                    Пополнете го формуларот и ќе ви одговориме во најкраток
+                    можен рок
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -171,7 +217,9 @@ export default function ContactPage() {
                           <Input
                             id="name"
                             value={formData.name}
-                            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                            onChange={(e) =>
+                              setFormData({ ...formData, name: e.target.value })
+                            }
                             placeholder="Петар Петровски"
                             required
                             disabled={isSubmitting}
@@ -184,7 +232,12 @@ export default function ContactPage() {
                             id="email"
                             type="email"
                             value={formData.email}
-                            onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                            onChange={(e) =>
+                              setFormData({
+                                ...formData,
+                                email: e.target.value,
+                              })
+                            }
                             placeholder="example@mail.com"
                             required
                             disabled={isSubmitting}
@@ -197,7 +250,12 @@ export default function ContactPage() {
                         <Input
                           id="subject"
                           value={formData.subject}
-                          onChange={(e) => setFormData({ ...formData, subject: e.target.value })}
+                          onChange={(e) =>
+                            setFormData({
+                              ...formData,
+                              subject: e.target.value,
+                            })
+                          }
                           placeholder="Тема на пораката"
                           required
                           disabled={isSubmitting}
@@ -209,7 +267,12 @@ export default function ContactPage() {
                         <Textarea
                           id="message"
                           value={formData.message}
-                          onChange={(e) => setFormData({ ...formData, message: e.target.value })}
+                          onChange={(e) =>
+                            setFormData({
+                              ...formData,
+                              message: e.target.value,
+                            })
+                          }
                           placeholder="Напишете ја вашата порака..."
                           rows={5}
                           required
@@ -217,7 +280,11 @@ export default function ContactPage() {
                         />
                       </Field>
                     </FieldGroup>
-                    <Button type="submit" className="w-full h-11" disabled={isSubmitting}>
+                    <Button
+                      type="submit"
+                      className="w-full h-11"
+                      disabled={isSubmitting}
+                    >
                       {isSubmitting ? (
                         <>
                           <Spinner className="size-4" />
@@ -236,18 +303,20 @@ export default function ContactPage() {
 
               {/* Working Hours & Additional Info */}
               <div className="space-y-6">
-                <Card className="bg-gradient-to-br from-primary/5 to-primary/10 border-primary/20">
+                <Card className="bg-card border-border">
                   <CardContent className="p-6">
                     <div className="flex items-start gap-4">
                       <div className="size-12 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
                         <Clock className="size-6 text-primary" />
                       </div>
                       <div>
-                        <h3 className="font-semibold text-foreground mb-2">Работно време</h3>
-                        <div className="space-y-1 text-muted-foreground">
-                          <p>Понеделник - Петок: 08:00 - 16:00</p>
-                          <p>Сабота - Недела: Затворено</p>
-                        </div>
+                        <h3 className="font-semibold text-foreground mb-2">
+                          24/7 достапност
+                        </h3>
+                        <p className="text-muted-foreground">
+                          Платформата е достапна во секое време – пристапете до
+                          информации и насоки кога и да ви се потребни.
+                        </p>
                       </div>
                     </div>
                   </CardContent>
@@ -260,10 +329,13 @@ export default function ContactPage() {
                         <MessageCircle className="size-6 text-green-600 dark:text-green-400" />
                       </div>
                       <div>
-                        <h3 className="font-semibold text-foreground mb-2">Брз одговор</h3>
+                        <h3 className="font-semibold text-foreground mb-2">
+                          Брз одговор
+                        </h3>
                         <p className="text-muted-foreground">
-                          Нашиот тим одговара на сите пораки во рок од 24 часа во работни денови.
-                          За итни прашања, ве молиме јавете се на телефон.
+                          Нашиот тим одговара на сите пораки во рок од 24 часа
+                          во работни денови. За итни прашања, ве молиме јавете
+                          се на телефон.
                         </p>
                       </div>
                     </div>
@@ -277,10 +349,12 @@ export default function ContactPage() {
                         <HelpCircle className="size-6 text-blue-600 dark:text-blue-400" />
                       </div>
                       <div>
-                        <h3 className="font-semibold text-foreground mb-2">Поддршка</h3>
+                        <h3 className="font-semibold text-foreground mb-2">
+                          Поддршка
+                        </h3>
                         <p className="text-muted-foreground">
-                          Ако имате технички проблеми со платформата, проверете ги ЧПП подолу
-                          или контактирајте не директно за помош.
+                          Ако имате технички проблеми со платформата, проверете
+                          ги ЧПП подолу или контактирајте не директно за помош.
                         </p>
                       </div>
                     </div>
@@ -299,7 +373,9 @@ export default function ContactPage() {
                 <HelpCircle className="size-4" />
                 <span>ЧПП</span>
               </div>
-              <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-4">Често поставувани прашања</h2>
+              <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-4">
+                Често поставувани прашања
+              </h2>
               <p className="text-muted-foreground max-w-xl mx-auto text-lg">
                 Одговори на најчестите прашања од нашите корисници
               </p>
@@ -310,7 +386,11 @@ export default function ContactPage() {
                 <CardContent className="p-6">
                   <Accordion type="single" collapsible className="w-full">
                     {faqs.map((faq, index) => (
-                      <AccordionItem key={index} value={`item-${index}`} className="border-border">
+                      <AccordionItem
+                        key={index}
+                        value={`item-${index}`}
+                        className="border-border"
+                      >
                         <AccordionTrigger className="text-left text-foreground hover:text-primary py-4">
                           {faq.question}
                         </AccordionTrigger>
@@ -328,19 +408,16 @@ export default function ContactPage() {
       </main>
 
       {/* Footer */}
-      <footer className="py-8 bg-muted/30 border-t border-border">
+      <footer className="py-8 bg-background border-t border-border">
         <div className="container mx-auto px-4">
-          <div className="flex flex-col md:flex-row items-center justify-between gap-4">
-            <div className="flex items-center gap-2 text-muted-foreground">
-              <FileText className="size-5" />
-              <span className="font-semibold">еУслуги</span>
-            </div>
+          <div className="flex justify-center items-center text-center">
             <p className="text-sm text-muted-foreground">
-              &copy; {new Date().getFullYear()} еУслуги. Сите права задржани.
+              &copy; {new Date().getFullYear()} Дигитален асистент за животни
+              настани. Сите права се задржани.
             </p>
           </div>
         </div>
       </footer>
     </div>
-  )
+  );
 }
