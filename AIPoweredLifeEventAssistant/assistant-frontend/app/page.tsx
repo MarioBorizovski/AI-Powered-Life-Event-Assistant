@@ -12,6 +12,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { NotificationInbox } from '@/components/ui/notification-inbox';
 import {
   FileText,
   ClipboardList,
@@ -114,6 +115,7 @@ export default function HomePage() {
           </nav>
 
           <div className="flex items-center gap-3">
+            <NotificationInbox />
             <ThemeToggle />
             {user ? (
               <Button asChild>
