@@ -1,4 +1,4 @@
-from __future__ import annotations
+
 import uuid
 from datetime import datetime, timezone
 from typing import Optional, List
@@ -128,7 +128,6 @@ class TodoRead(SQLModel):
 
 
 class DocumentRead(SQLModel):
-    id: str
     name: str
     description: Optional[str] = None
     required: bool

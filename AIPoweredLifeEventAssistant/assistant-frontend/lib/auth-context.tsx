@@ -1,9 +1,24 @@
 'use client'
 
-import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react'
+import {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  useCallback,
+  type ReactNode,
+} from 'react'
+import {
+  apiAuth,
+  setToken,
+  clearToken,
+  getToken,
+  type ApiUser,
+} from './api-client'
 
+// ── Types ─────────────────────────────────────────────────
 export interface PersonalInfo {
-  embg: string // Единствен матичен број на граѓанин
+  embg: string
   firstName: string
   lastName: string
   dateOfBirth: string
@@ -12,7 +27,7 @@ export interface PersonalInfo {
   city: string
   postalCode: string
   phoneNumber: string
-  idCardNumber: string // Број на лична карта
+  idCardNumber: string
 }
 
 export interface User {
@@ -20,9 +35,12 @@ export interface User {
   email: string
   name: string
   role: 'user' | 'admin'
-  password?: string
-  personalInfo?: PersonalInfo
+  embg?: string | null
+  phone_number?: string | null
+  address?: string | null
+  city?: string | null
   hasCompletedProfile?: boolean
+  personalInfo?: PersonalInfo
 }
 
 interface AuthContextType {
@@ -38,179 +56,103 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
-// Mock users for demonstration
-const MOCK_USERS: User[] = [
-  {
-    id: '1',
-    email: 'admin@test.com',
-    name: 'Администратор',
-    role: 'admin',
-    password: 'admin123',
-  },
-  {
-    id: '2',
-    email: 'user@test.com',
-    name: 'Корисник Тест',
-    role: 'user',
-    password: 'user123',
-  },
-]
-
-const STORAGE_KEY = 'euslugi_auth'
-const USERS_KEY = 'euslugi_users'
+// ── Helper: map backend user → local User ─────────────────
+function mapApiUser(apiUser: ApiUser): User {
+  return {
+    id: apiUser.id,
+    email: apiUser.email,
+    name: apiUser.name,
+    role: apiUser.role,
+    embg: apiUser.embg,
+    phone_number: apiUser.phone_number,
+    address: apiUser.address,
+    city: apiUser.city,
+    hasCompletedProfile: !!(apiUser.embg || apiUser.phone_number || apiUser.address),
+  }
+}
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [isLoading, setIsLoading] = useState(true)
 
-  const getUsers = useCallback((): User[] => {
-    if (typeof window === 'undefined') return MOCK_USERS
-    const stored = localStorage.getItem(USERS_KEY)
-    if (stored) {
-      return JSON.parse(stored)
-    }
-    localStorage.setItem(USERS_KEY, JSON.stringify(MOCK_USERS))
-    return MOCK_USERS
-  }, [])
-
+  // On mount: restore session from stored JWT
   useEffect(() => {
-    const stored = localStorage.getItem(STORAGE_KEY)
-    if (stored) {
-      const userData = JSON.parse(stored)
-      setUser(userData)
+    const token = getToken()
+    if (!token) {
+      setIsLoading(false)
+      return
     }
-    setIsLoading(false)
+    apiAuth
+      .me()
+      .then((apiUser) => setUser(mapApiUser(apiUser)))
+      .catch(() => clearToken())
+      .finally(() => setIsLoading(false))
   }, [])
 
   const login = async (email: string, password: string) => {
-    // Simulate API delay
-    await new Promise((resolve) => setTimeout(resolve, 800))
-
-    const users = getUsers()
-    const foundUser = users.find(
-      (u) => u.email.toLowerCase() === email.toLowerCase() && u.password === password
-    )
-
-    if (foundUser) {
-      const { password: _, ...userWithoutPassword } = foundUser
-      setUser(userWithoutPassword as User)
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(userWithoutPassword))
+    try {
+      const data = await apiAuth.login(email, password)
+      setToken(data.access_token)
+      setUser(mapApiUser(data.user))
       return { success: true }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Грешка при најава'
+      return { success: false, error: msg }
     }
-
-    return { success: false, error: 'Невалидна е-пошта или лозинка' }
   }
 
   const register = async (name: string, email: string, password: string) => {
-    await new Promise((resolve) => setTimeout(resolve, 800))
-
-    const users = getUsers()
-    const exists = users.find((u) => u.email.toLowerCase() === email.toLowerCase())
-
-    if (exists) {
-      return { success: false, error: 'Корисник со оваа е-пошта веќе постои' }
+    try {
+      const data = await apiAuth.register(name, email, password)
+      setToken(data.access_token)
+      setUser(mapApiUser(data.user))
+      return { success: true }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Грешка при регистрација'
+      return { success: false, error: msg }
     }
-
-    const newUser: User = {
-      id: String(Date.now()),
-      email,
-      name,
-      role: 'user',
-      password,
-    }
-
-    const updatedUsers = [...users, newUser]
-    localStorage.setItem(USERS_KEY, JSON.stringify(updatedUsers))
-
-    const { password: _, ...userWithoutPassword } = newUser
-    setUser(userWithoutPassword as User)
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(userWithoutPassword))
-
-    return { success: true }
   }
 
   const logout = () => {
     setUser(null)
-    localStorage.removeItem(STORAGE_KEY)
+    clearToken()
   }
 
-  const updateProfile = async (data: { name?: string; email?: string; password?: string }) => {
-    await new Promise((resolve) => setTimeout(resolve, 500))
-
-    if (!user) {
-      return { success: false, error: 'Не сте најавени' }
+  const updateProfile = async (data: {
+    name?: string
+    email?: string
+    password?: string
+  }) => {
+    try {
+      const updated = await apiAuth.updateMe(data)
+      setUser((prev) => (prev ? { ...prev, ...mapApiUser(updated) } : null))
+      return { success: true }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Грешка при ажурирање'
+      return { success: false, error: msg }
     }
-
-    const users = getUsers()
-
-    // Check if new email already exists (if changing email)
-    if (data.email && data.email !== user.email) {
-      const exists = users.find((u) => u.email.toLowerCase() === data.email!.toLowerCase())
-      if (exists) {
-        return { success: false, error: 'Корисник со оваа е-пошта веќе постои' }
-      }
-    }
-
-    const updatedUsers = users.map((u) => {
-      if (u.id === user.id) {
-        return {
-          ...u,
-          name: data.name || u.name,
-          email: data.email || u.email,
-          password: data.password || u.password,
-        }
-      }
-      return u
-    })
-
-    localStorage.setItem(USERS_KEY, JSON.stringify(updatedUsers))
-
-    const updatedUser = {
-      ...user,
-      name: data.name || user.name,
-      email: data.email || user.email,
-    }
-
-    setUser(updatedUser)
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedUser))
-
-    return { success: true }
   }
 
   const updatePersonalInfo = async (info: PersonalInfo) => {
-    await new Promise((resolve) => setTimeout(resolve, 500))
-
-    if (!user) {
-      return { success: false, error: 'Не сте најавени' }
+    try {
+      const updated = await apiAuth.updateMe({
+        name: `${info.firstName} ${info.lastName}`,
+        embg: info.embg,
+        phone_number: info.phoneNumber,
+        address: info.address,
+        city: info.city,
+      })
+      const mapped = mapApiUser(updated)
+      setUser({
+        ...mapped,
+        personalInfo: info,
+        hasCompletedProfile: true,
+      })
+      return { success: true }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Грешка при ажурирање'
+      return { success: false, error: msg }
     }
-
-    const users = getUsers()
-
-    const updatedUsers = users.map((u) => {
-      if (u.id === user.id) {
-        return {
-          ...u,
-          personalInfo: info,
-          hasCompletedProfile: true,
-          name: `${info.firstName} ${info.lastName}`,
-        }
-      }
-      return u
-    })
-
-    localStorage.setItem(USERS_KEY, JSON.stringify(updatedUsers))
-
-    const updatedUser = {
-      ...user,
-      personalInfo: info,
-      hasCompletedProfile: true,
-      name: `${info.firstName} ${info.lastName}`,
-    }
-
-    setUser(updatedUser)
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedUser))
-
-    return { success: true }
   }
 
   return (

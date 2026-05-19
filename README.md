@@ -27,3 +27,8 @@ pnpm install
 pnpm run dev
 The frontend will run on:
 http://localhost:3000
+
+# Test User and admin
+
+"email": "admin@test.com", "name": "Admin",     "password": "admin123", "role": "admin"
+"email": "user@test.com",  "name": "Test User", "password": "user123",  "role": "user"

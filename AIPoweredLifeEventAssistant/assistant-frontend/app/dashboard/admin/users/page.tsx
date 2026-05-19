@@ -3,8 +3,9 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { useAuth, type PersonalInfo } from "@/lib/auth-context";
-import { mockApi, type Request, LIFE_EVENTS } from "@/lib/mock-api";
+import { useAuth } from "@/lib/auth-context";
+import { apiAdmin, type ApiUser, type ApiRequest } from "@/lib/api-client";
+import { LIFE_EVENTS } from "@/lib/mock-api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -72,12 +73,7 @@ import {
   ArrowRight,
 } from "lucide-react";
 
-interface UserData {
-  id: string;
-  email: string;
-  name: string;
-  role: string;
-  personalInfo?: PersonalInfo;
+interface UserData extends ApiUser {
   requestsCount?: number;
   completedRequestsCount?: number;
 }
@@ -108,7 +104,7 @@ export default function AdminUsersPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [viewUser, setViewUser] = useState<UserData | null>(null);
-  const [userRequests, setUserRequests] = useState<Request[]>([]);
+  const [userRequests, setUserRequests] = useState<ApiRequest[]>([]);
   const [isLoadingDetails, setIsLoadingDetails] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -119,10 +115,15 @@ export default function AdminUsersPage() {
     }
 
     const loadUsers = async () => {
-      const data = await mockApi.getAllUsers();
-      setUsers(data);
-      setFilteredUsers(data);
-      setIsLoading(false);
+      try {
+        const data = await apiAdmin.listUsers();
+        setUsers(data);
+        setFilteredUsers(data);
+      } catch (error) {
+        console.error(error);
+      } finally {
+        setIsLoading(false);
+      }
     };
     loadUsers();
   }, [isAdmin, router]);
@@ -150,10 +151,14 @@ export default function AdminUsersPage() {
       return;
     }
 
-    await mockApi.deleteUser(deleteId);
-    setUsers((prev) => prev.filter((u) => u.id !== deleteId));
-    setDeleteId(null);
-    toast.success("Корисникот е успешно избришан");
+    try {
+      await apiAdmin.deleteUser(deleteId);
+      setUsers((prev) => prev.filter((u) => u.id !== deleteId));
+      setDeleteId(null);
+      toast.success("Корисникот е успешно избришан");
+    } catch (error) {
+      toast.error("Грешка при бришење на корисникот");
+    }
   };
 
   const handleRoleChange = async (
@@ -165,26 +170,39 @@ export default function AdminUsersPage() {
       return;
     }
 
-    await mockApi.updateUserRole(userId, newRole);
-    setUsers((prev) =>
-      prev.map((u) => (u.id === userId ? { ...u, role: newRole } : u)),
-    );
-    toast.success(
-      `Улогата е променета на "${newRole === "admin" ? "Администратор" : "Корисник"}"`,
-    );
+    try {
+      await apiAdmin.updateUserRole(userId, newRole);
+      setUsers((prev) =>
+        prev.map((u) => (u.id === userId ? { ...u, role: newRole } : u)),
+      );
+      toast.success(
+        `Улогата е променета на "${newRole === "admin" ? "Администратор" : "Корисник"}"`,
+      );
+    } catch (error) {
+      toast.error("Грешка при промена на улогата");
+    }
   };
 
   const handleViewUser = async (userId: string) => {
     setIsLoadingDetails(true);
-    const [details, requests] = await Promise.all([
-      mockApi.getUserWithDetails(userId),
-      mockApi.getUserRequests(userId),
-    ]);
-    if (details) {
-      setViewUser(details as UserData);
-      setUserRequests(requests);
+    try {
+      const userObj = users.find((u) => u.id === userId);
+      const allRequests = await apiAdmin.listRequests();
+      const requests = allRequests.filter((r) => r.user_id === userId);
+      
+      if (userObj) {
+        setViewUser({
+          ...userObj,
+          requestsCount: requests.length,
+          completedRequestsCount: requests.filter(r => r.status === 'completed').length
+        });
+        setUserRequests(requests);
+      }
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setIsLoadingDetails(false);
     }
-    setIsLoadingDetails(false);
   };
 
   const getLifeEventLabel = (value: string) => {
@@ -532,53 +550,17 @@ export default function AdminUsersPage() {
                   </div>
 
                   {/* Personal Info */}
-                  {viewUser.personalInfo ? (
+                  {viewUser.embg ? (
                     <div className="space-y-4">
                       <h4 className="font-semibold text-foreground flex items-center gap-2">
                         <IdCard className="size-4" />
-                        Лична карта
+                        Лични податоци
                       </h4>
                       <div className="grid sm:grid-cols-2 gap-4 p-4 rounded-lg bg-muted/50 border border-border">
                         <div>
                           <p className="text-xs text-muted-foreground">ЕМБГ</p>
                           <p className="font-mono text-foreground">
-                            {viewUser.personalInfo.embg}
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-xs text-muted-foreground">
-                            Број на лична карта
-                          </p>
-                          <p className="font-mono text-foreground">
-                            {viewUser.personalInfo.idCardNumber}
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-xs text-muted-foreground">
-                            Име и презиме
-                          </p>
-                          <p className="text-foreground">
-                            {viewUser.personalInfo.firstName}{" "}
-                            {viewUser.personalInfo.lastName}
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-xs text-muted-foreground">
-                            Датум на раѓање
-                          </p>
-                          <p className="text-foreground flex items-center gap-1">
-                            <Calendar className="size-3" />
-                            {new Date(
-                              viewUser.personalInfo.dateOfBirth,
-                            ).toLocaleDateString("mk-MK")}
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-xs text-muted-foreground">
-                            Место на раѓање
-                          </p>
-                          <p className="text-foreground">
-                            {viewUser.personalInfo.placeOfBirth}
+                            {viewUser.embg}
                           </p>
                         </div>
                         <div>
@@ -587,7 +569,7 @@ export default function AdminUsersPage() {
                           </p>
                           <p className="text-foreground flex items-center gap-1">
                             <Phone className="size-3" />
-                            {viewUser.personalInfo.phoneNumber}
+                            {viewUser.phone_number || "Нема"}
                           </p>
                         </div>
                         <div className="sm:col-span-2">
@@ -596,9 +578,7 @@ export default function AdminUsersPage() {
                           </p>
                           <p className="text-foreground flex items-center gap-1">
                             <MapPin className="size-3" />
-                            {viewUser.personalInfo.address},{" "}
-                            {viewUser.personalInfo.postalCode}{" "}
-                            {viewUser.personalInfo.city}
+                            {viewUser.address ? `${viewUser.address}, ${viewUser.city}` : "Нема"}
                           </p>
                         </div>
                       </div>
@@ -640,10 +620,10 @@ export default function AdminUsersPage() {
                             </div>
                             <div className="flex-1 min-w-0">
                               <p className="font-medium text-foreground truncate">
-                                {getLifeEventLabel(request.lifeEvent)}
+                                {getLifeEventLabel(request.life_event)}
                               </p>
                               <p className="text-sm text-muted-foreground">
-                                {new Date(request.createdAt).toLocaleDateString(
+                                {new Date(request.created_at).toLocaleDateString(
                                   "mk-MK",
                                   {
                                     day: "numeric",

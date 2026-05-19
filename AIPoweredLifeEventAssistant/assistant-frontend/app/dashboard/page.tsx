@@ -1,10 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Pie, Cell, Tooltip, ResponsiveContainer } from "recharts";
 import Link from "next/link";
 import { useAuth } from "@/lib/auth-context";
-import { mockApi, type Request, LIFE_EVENTS } from "@/lib/mock-api";
+import { apiEvents, apiAdmin, type ApiRequest, type AdminStats } from "@/lib/api-client";
+import { LIFE_EVENTS } from "@/lib/mock-api";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -60,19 +60,16 @@ const statusConfig = {
 // User Dashboard Component
 function UserDashboard() {
   const { user } = useAuth();
-  const [requests, setRequests] = useState<Request[]>([]);
+  const [requests, setRequests] = useState<ApiRequest[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const loadRequests = async () => {
-      if (user) {
-        const data = await mockApi.getRequests(user.id);
-        setRequests(data);
-      }
-      setIsLoading(false);
-    };
-    loadRequests();
-  }, [user]);
+    apiEvents
+      .list()
+      .then((data) => setRequests(data))
+      .catch(() => {})
+      .finally(() => setIsLoading(false));
+  }, []);
 
   const stats = {
     total: requests.length,
@@ -83,9 +80,8 @@ function UserDashboard() {
 
   const recentRequests = requests.slice(-3).reverse();
 
-  const getLifeEventLabel = (value: string) => {
-    return LIFE_EVENTS.find((e) => e.value === value)?.label || value;
-  };
+  const getLifeEventLabel = (value: string) =>
+    LIFE_EVENTS.find((e) => e.value === value)?.label || value;
 
   return (
     <div className="max-w-6xl mx-auto space-y-8 pb-20 lg:pb-0">
@@ -240,10 +236,10 @@ function UserDashboard() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="font-medium text-foreground truncate">
-                        {getLifeEventLabel(request.lifeEvent)}
+                        {getLifeEventLabel(request.life_event)}
                       </p>
                       <p className="text-sm text-muted-foreground">
-                        {new Date(request.createdAt).toLocaleDateString(
+                        {new Date(request.created_at).toLocaleDateString(
                           "mk-MK",
                           {
                             day: "numeric",
@@ -266,7 +262,7 @@ function UserDashboard() {
       </Card>
 
       {/* Quick Actions */}
-      {/* <div className="grid md:grid-cols-2 gap-4">
+      <div className="grid md:grid-cols-2 gap-4">
         <Card className="bg-gradient-to-br from-primary/10 to-primary/5 border-primary/20">
           <CardHeader>
             <CardTitle className="text-lg text-card-foreground">Генерирај ново барање</CardTitle>
@@ -300,40 +296,29 @@ function UserDashboard() {
             </Button>
           </CardContent>
         </Card>
-      </div> */}
+      </div>
     </div>
   );
 }
 
 // Admin Dashboard Component with Analytics
 function AdminDashboard() {
-  const [stats, setStats] = useState<{
-    totalUsers: number;
-    totalRequests: number;
-    pendingRequests: number;
-    completedRequests: number;
-    cancelledRequests: number;
-    requestsByLifeEvent: { lifeEvent: string; count: number }[];
-  } | null>(null);
+  const [stats, setStats] = useState<AdminStats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [recentRequests, setRecentRequests] = useState<Request[]>([]);
+  const [recentRequests, setRecentRequests] = useState<ApiRequest[]>([]);
 
   useEffect(() => {
-    const loadData = async () => {
-      const [statsData, requestsData] = await Promise.all([
-        mockApi.getSystemStats(),
-        mockApi.getRequests(),
-      ]);
-      setStats(statsData);
-      setRecentRequests(requestsData.slice(-5).reverse());
-      setIsLoading(false);
-    };
-    loadData();
+    Promise.all([apiAdmin.stats(), apiAdmin.listRequests()])
+      .then(([statsData, requestsData]) => {
+        setStats(statsData);
+        setRecentRequests(requestsData.slice(0, 5));
+      })
+      .catch(() => {})
+      .finally(() => setIsLoading(false));
   }, []);
 
-  const getLifeEventLabel = (value: string) => {
-    return LIFE_EVENTS.find((e) => e.value === value)?.label || value;
-  };
+  const getLifeEventLabel = (value: string) =>
+    LIFE_EVENTS.find((e) => e.value === value)?.label || value;
 
   const completionRate =
     stats && stats.totalRequests > 0
@@ -626,13 +611,13 @@ function AdminDashboard() {
                   return (
                     <TableRow key={request.id}>
                       <TableCell className="font-mono text-xs">
-                        {request.userId.slice(0, 12)}...
+                        {request.user_id.slice(0, 12)}...
                       </TableCell>
                       <TableCell className="font-medium">
-                        {getLifeEventLabel(request.lifeEvent)}
+                        {getLifeEventLabel(request.life_event)}
                       </TableCell>
                       <TableCell className="text-muted-foreground">
-                        {new Date(request.createdAt).toLocaleDateString(
+                        {new Date(request.created_at).toLocaleDateString(
                           "mk-MK",
                           {
                             day: "numeric",
@@ -666,7 +651,7 @@ function AdminDashboard() {
       </Card>
 
       {/* Quick Links */}
-      {/* <div className="grid sm:grid-cols-3 gap-4">
+      <div className="grid sm:grid-cols-3 gap-4">
         <Card className="bg-gradient-to-br from-primary/10 to-primary/5 border-primary/20 hover:border-primary/40 transition-colors">
           <CardContent className="pt-6">
             <Link href="/dashboard/admin/requests" className="flex items-center gap-4">
@@ -711,7 +696,7 @@ function AdminDashboard() {
             </Link>
           </CardContent>
         </Card>
-      </div> */}
+      </div>
     </div>
   );
 }

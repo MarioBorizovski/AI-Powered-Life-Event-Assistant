@@ -3,7 +3,8 @@
 import { useEffect, useState, useCallback, use } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { mockApi, type Request, type RequestResult, LIFE_EVENTS } from '@/lib/mock-api'
+import { apiEvents, apiTasks, type ApiRequest, type ApiTodo } from '@/lib/api-client'
+import { LIFE_EVENTS } from '@/lib/mock-api'
 import { PDFExport } from '@/components/pdf-export'
 import { useAuth } from '@/lib/auth-context'
 import { Button } from '@/components/ui/button'
@@ -20,7 +21,6 @@ import {
   Clock,
   XCircle,
   FileText,
-  Download,
   PlusCircle,
   ExternalLink,
   MapPin,
@@ -44,17 +44,14 @@ export default function RequestDetailPage({ params }: { params: Promise<{ id: st
   const { id } = use(params)
   const router = useRouter()
   const { user } = useAuth()
-  const [request, setRequest] = useState<Request | null>(null)
-  const [result, setResult] = useState<RequestResult | null>(null)
+  const [request, setRequest] = useState<ApiRequest | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [isMarkingComplete, setIsMarkingComplete] = useState(false)
   const [expandedTodos, setExpandedTodos] = useState<string[]>([])
 
   const toggleTodoExpand = (todoId: string) => {
     setExpandedTodos((prev) =>
-      prev.includes(todoId)
-        ? prev.filter((id) => id !== todoId)
-        : [...prev, todoId]
+      prev.includes(todoId) ? prev.filter((id) => id !== todoId) : [...prev, todoId]
     )
   }
 
@@ -67,12 +64,11 @@ export default function RequestDetailPage({ params }: { params: Promise<{ id: st
     return config[priority]
   }
 
-  const formatDeadline = (deadline: string) => {
+  const formatDeadline = (deadline: string | null | undefined) => {
+    if (!deadline) return { text: 'Нема рок', isOverdue: false }
     const date = new Date(deadline)
     const today = new Date()
-    const diffTime = date.getTime() - today.getTime()
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
-    
+    const diffDays = Math.ceil((date.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
     if (diffDays < 0) return { text: `Истечен рок (${Math.abs(diffDays)} дена)`, isOverdue: true }
     if (diffDays === 0) return { text: 'Денес', isOverdue: false }
     if (diffDays === 1) return { text: 'Утре', isOverdue: false }
@@ -80,45 +76,37 @@ export default function RequestDetailPage({ params }: { params: Promise<{ id: st
   }
 
   useEffect(() => {
-    const loadData = async () => {
-      const requests = await mockApi.getRequests()
-      const foundRequest = requests.find((r) => r.id === id)
-      
-      if (foundRequest) {
-        setRequest(foundRequest)
-        const resultData = await mockApi.getRequestResult(id)
-        setResult(resultData)
-      }
-      
-      setIsLoading(false)
-    }
-    
-    loadData()
+    apiEvents
+      .get(id)
+      .then((data) => setRequest(data))
+      .catch(() => toast.error('Грешка при вчитување на барањето'))
+      .finally(() => setIsLoading(false))
   }, [id])
 
-  const handleTodoToggle = useCallback(async (todoId: string, completed: boolean) => {
-    if (!result) return
-    
-    await mockApi.updateTodoItem(id, todoId, completed)
-    setResult((prev) => {
-      if (!prev) return prev
-      return {
-        ...prev,
-        todos: prev.todos.map((t) =>
-          t.id === todoId ? { ...t, completed } : t
-        ),
+  const handleTodoToggle = useCallback(
+    async (todoId: string) => {
+      try {
+        const updated: ApiTodo = await apiTasks.toggle(todoId)
+        setRequest((prev) => {
+          if (!prev) return prev
+          return {
+            ...prev,
+            todos: prev.todos.map((t) => (t.id === todoId ? updated : t)),
+          }
+        })
+      } catch {
+        toast.error('Грешка при ажурирање на задачата')
       }
-    })
-  }, [id, result])
+    },
+    []
+  )
 
   const handleMarkAsComplete = useCallback(async () => {
     if (!request || request.status !== 'pending') return
-    
     setIsMarkingComplete(true)
-    
     try {
-      await mockApi.updateRequestStatus(id, 'completed')
-      setRequest((prev) => prev ? { ...prev, status: 'completed' } : prev)
+      await apiEvents.updateStatus(id, 'completed')
+      setRequest((prev) => (prev ? { ...prev, status: 'completed' } : prev))
       toast.success('Барањето е означено како завршено!')
     } catch {
       toast.error('Грешка при ажурирање на статусот')
@@ -127,13 +115,12 @@ export default function RequestDetailPage({ params }: { params: Promise<{ id: st
     }
   }, [id, request])
 
-  const completedTodos = result?.todos.filter((t) => t.completed).length || 0
-  const totalTodos = result?.todos.length || 0
+  const completedTodos = request?.todos.filter((t) => t.completed).length ?? 0
+  const totalTodos = request?.todos.length ?? 0
   const progressPercentage = totalTodos > 0 ? Math.round((completedTodos / totalTodos) * 100) : 0
 
-  const getLifeEventLabel = (value: string) => {
-    return LIFE_EVENTS.find((e) => e.value === value)?.label || value
-  }
+  const getLifeEventLabel = (value: string) =>
+    LIFE_EVENTS.find((e) => e.value === value)?.label || value
 
   if (isLoading) {
     return (
@@ -151,7 +138,7 @@ export default function RequestDetailPage({ params }: { params: Promise<{ id: st
     )
   }
 
-  if (!request || !result) {
+  if (!request) {
     return (
       <div className="max-w-4xl mx-auto space-y-6 pb-20 lg:pb-0">
         <div className="text-center py-12">
@@ -172,6 +159,22 @@ export default function RequestDetailPage({ params }: { params: Promise<{ id: st
 
   const status = statusConfig[request.status]
 
+  // Build a compatible object for PDFExport (maps backend → legacy shape)
+  const pdfRequest = {
+    id: request.id,
+    userId: request.user_id,
+    lifeEvent: request.life_event,
+    description: request.description,
+    status: request.status,
+    createdAt: request.created_at,
+    uploadedFiles: [],
+  }
+  const pdfResult = {
+    todos: request.todos.map((t) => ({ ...t, deadline: t.deadline ?? '' })),
+    documents: request.documents.map((d, i) => ({ id: String(i), ...d, templateFileName: undefined })),
+    services: request.services.map((s) => ({ ...s, location: s.location ?? '', link: s.link ?? '' })),
+  }
+
   return (
     <div className="max-w-4xl mx-auto space-y-6 pb-20 lg:pb-0">
       {/* Header */}
@@ -182,11 +185,11 @@ export default function RequestDetailPage({ params }: { params: Promise<{ id: st
           </Button>
           <div>
             <h1 className="text-2xl md:text-3xl font-bold text-foreground">
-              {getLifeEventLabel(request.lifeEvent)}
+              {getLifeEventLabel(request.life_event)}
             </h1>
             <div className="flex items-center gap-3 mt-1">
               <span className="text-muted-foreground">
-                {new Date(request.createdAt).toLocaleDateString('mk-MK', {
+                {new Date(request.created_at).toLocaleDateString('mk-MK', {
                   day: 'numeric',
                   month: 'long',
                   year: 'numeric',
@@ -200,7 +203,7 @@ export default function RequestDetailPage({ params }: { params: Promise<{ id: st
           </div>
         </div>
         <div className="flex gap-2">
-          <PDFExport request={request} result={result} />
+          <PDFExport request={pdfRequest as never} result={pdfResult as never} />
           <Button asChild>
             <Link href="/dashboard/new-request">
               <PlusCircle className="size-4" />
@@ -225,18 +228,15 @@ export default function RequestDetailPage({ params }: { params: Promise<{ id: st
               {progressPercentage}%
             </p>
           </div>
-          
-          {/* Mark as Complete Button - Only show if request is pending */}
+
           {request.status === 'pending' && (
             <div className="mt-4 pt-4 border-t border-border">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-foreground">Завршивте со сите задачи?</p>
-                  <p className="text-xs text-muted-foreground">
-                    Означете го барањето како завршено
-                  </p>
+                  <p className="text-xs text-muted-foreground">Означете го барањето како завршено</p>
                 </div>
-                <Button 
+                <Button
                   onClick={handleMarkAsComplete}
                   disabled={isMarkingComplete}
                   className="bg-green-600 hover:bg-green-700 text-white"
@@ -256,8 +256,7 @@ export default function RequestDetailPage({ params }: { params: Promise<{ id: st
               </div>
             </div>
           )}
-          
-          {/* Show completion message if completed */}
+
           {request.status === 'completed' && (
             <div className="mt-4 pt-4 border-t border-border">
               <div className="flex items-center gap-3 p-3 rounded-lg bg-green-500/10 border border-green-500/20">
@@ -289,11 +288,11 @@ export default function RequestDetailPage({ params }: { params: Promise<{ id: st
         </CardHeader>
         <CardContent>
           <div className="space-y-3">
-            {result.todos.map((todo) => {
+            {request.todos.map((todo) => {
               const priorityConfig = getPriorityConfig(todo.priority)
               const deadlineInfo = formatDeadline(todo.deadline)
               const isExpanded = expandedTodos.includes(todo.id)
-              
+
               return (
                 <div
                   key={todo.id}
@@ -309,9 +308,7 @@ export default function RequestDetailPage({ params }: { params: Promise<{ id: st
                     <Checkbox
                       id={todo.id}
                       checked={todo.completed}
-                      onCheckedChange={(checked) =>
-                        handleTodoToggle(todo.id, checked as boolean)
-                      }
+                      onCheckedChange={() => handleTodoToggle(todo.id)}
                       className="mt-1"
                     />
                     <div className="flex-1 min-w-0">
@@ -319,7 +316,9 @@ export default function RequestDetailPage({ params }: { params: Promise<{ id: st
                         <Label
                           htmlFor={todo.id}
                           className={`text-sm cursor-pointer ${
-                            todo.completed ? 'line-through text-muted-foreground' : 'text-foreground font-medium'
+                            todo.completed
+                              ? 'line-through text-muted-foreground'
+                              : 'text-foreground font-medium'
                           }`}
                         >
                           {todo.text}
@@ -334,42 +333,53 @@ export default function RequestDetailPage({ params }: { params: Promise<{ id: st
                           )}
                         </div>
                       </div>
-                      
-                      {/* Deadline and expand button */}
-                      <div className="flex items-center justify-between mt-2">
-                        <div className={`flex items-center gap-1.5 text-xs ${
-                          deadlineInfo.isOverdue && !todo.completed
-                            ? 'text-red-600 dark:text-red-400'
-                            : 'text-muted-foreground'
-                        }`}>
-                          <Calendar className="size-3" />
-                          <span>Рок: {new Date(todo.deadline).toLocaleDateString('mk-MK', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
-                          <span className="text-muted-foreground">({deadlineInfo.text})</span>
-                        </div>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-6 px-2 text-xs"
-                          onClick={() => toggleTodoExpand(todo.id)}
-                        >
-                          {isExpanded ? (
-                            <>
-                              <ChevronUp className="size-3" />
-                              <span>Помалку</span>
-                            </>
-                          ) : (
-                            <>
-                              <ChevronDown className="size-3" />
-                              <span>Детали</span>
-                            </>
+
+                      {todo.deadline && (
+                        <div className="flex items-center justify-between mt-2">
+                          <div
+                            className={`flex items-center gap-1.5 text-xs ${
+                              deadlineInfo.isOverdue && !todo.completed
+                                ? 'text-red-600 dark:text-red-400'
+                                : 'text-muted-foreground'
+                            }`}
+                          >
+                            <Calendar className="size-3" />
+                            <span>
+                              Рок:{' '}
+                              {new Date(todo.deadline).toLocaleDateString('mk-MK', {
+                                day: 'numeric',
+                                month: 'short',
+                                year: 'numeric',
+                              })}
+                            </span>
+                            <span className="text-muted-foreground">({deadlineInfo.text})</span>
+                          </div>
+                          {todo.description && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-6 px-2 text-xs"
+                              onClick={() => toggleTodoExpand(todo.id)}
+                            >
+                              {isExpanded ? (
+                                <>
+                                  <ChevronUp className="size-3" />
+                                  <span>Помалку</span>
+                                </>
+                              ) : (
+                                <>
+                                  <ChevronDown className="size-3" />
+                                  <span>Детали</span>
+                                </>
+                              )}
+                            </Button>
                           )}
-                        </Button>
-                      </div>
+                        </div>
+                      )}
                     </div>
                   </div>
-                  
-                  {/* Expanded description */}
-                  {isExpanded && (
+
+                  {isExpanded && todo.description && (
                     <div className="px-3 pb-3 pt-0 ml-9">
                       <div className="p-3 rounded-md bg-muted/50 border border-border">
                         <p className="text-sm text-muted-foreground">{todo.description}</p>
@@ -391,14 +401,14 @@ export default function RequestDetailPage({ params }: { params: Promise<{ id: st
             Потребни документи
           </CardTitle>
           <CardDescription>
-            Листа на документи кои треба да ги обезбедите. Преземете ги образците за пополнување.
+            Листа на документи кои треба да ги обезбедите.
           </CardDescription>
         </CardHeader>
         <CardContent>
           <div className="space-y-3">
-            {result.documents.map((doc) => (
+            {request.documents.map((doc, i) => (
               <div
-                key={doc.id}
+                key={i}
                 className="flex items-start gap-4 p-4 rounded-lg border border-border bg-background"
               >
                 <div className="size-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
@@ -418,19 +428,8 @@ export default function RequestDetailPage({ params }: { params: Promise<{ id: st
                       {doc.required ? 'Задолжително' : 'Опционално'}
                     </Badge>
                   </div>
-                  <p className="text-sm text-muted-foreground mt-1">{doc.description}</p>
-                  {doc.templateFileName && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="mt-2"
-                      onClick={() => {
-                        toast.success(`Преземање: ${doc.templateFileName}`)
-                      }}
-                    >
-                      <Download className="size-3" />
-                      <span>Преземи образец</span>
-                    </Button>
+                  {doc.description && (
+                    <p className="text-sm text-muted-foreground mt-1">{doc.description}</p>
                   )}
                 </div>
               </div>
@@ -438,42 +437,6 @@ export default function RequestDetailPage({ params }: { params: Promise<{ id: st
           </div>
         </CardContent>
       </Card>
-
-      {/* Uploaded Files */}
-      {request.uploadedFiles && request.uploadedFiles.length > 0 && (
-        <Card className="bg-card border-border">
-          <CardHeader>
-            <CardTitle className="text-lg text-card-foreground flex items-center gap-2">
-              <FileCheck className="size-5" />
-              Прикачени датотеки
-            </CardTitle>
-            <CardDescription>
-              Датотеки кои ги имате прикачено со ова барање
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-2">
-              {request.uploadedFiles.map((file) => (
-                <div
-                  key={file.id}
-                  className="flex items-center gap-3 p-3 rounded-lg border border-border bg-muted/30"
-                >
-                  <FileText className="size-5 text-primary" />
-                  <div className="flex-1">
-                    <p className="text-sm font-medium text-foreground">{file.name}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {(file.size / 1024).toFixed(1)} KB - {new Date(file.uploadedAt).toLocaleDateString('mk-MK')}
-                    </p>
-                  </div>
-                  <Button variant="ghost" size="sm">
-                    <Download className="size-4" />
-                  </Button>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
 
       {/* Services */}
       <Card className="bg-card border-border">
@@ -488,17 +451,21 @@ export default function RequestDetailPage({ params }: { params: Promise<{ id: st
         </CardHeader>
         <CardContent>
           <div className="grid md:grid-cols-2 gap-4">
-            {result.services.map((service) => (
+            {request.services.map((service) => (
               <div
                 key={service.id}
                 className="p-4 rounded-lg border border-border bg-background hover:border-primary/50 transition-colors"
               >
                 <h4 className="font-medium text-foreground mb-1">{service.name}</h4>
-                <p className="text-sm text-muted-foreground mb-3">{service.description}</p>
-                <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
-                  <MapPin className="size-4" />
-                  <span>{service.location}</span>
-                </div>
+                {service.description && (
+                  <p className="text-sm text-muted-foreground mb-3">{service.description}</p>
+                )}
+                {service.location && (
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
+                    <MapPin className="size-4" />
+                    <span>{service.location}</span>
+                  </div>
+                )}
                 {service.link && (
                   <a
                     href={service.link}
@@ -518,7 +485,7 @@ export default function RequestDetailPage({ params }: { params: Promise<{ id: st
 
       {/* Actions */}
       <div className="flex flex-col sm:flex-row gap-3">
-        <PDFExport request={request} result={result} className="flex-1" />
+        <PDFExport request={pdfRequest as never} result={pdfResult as never} className="flex-1" />
         <Button className="flex-1" asChild>
           <Link href="/dashboard/new-request">
             <PlusCircle className="size-4" />
